@@ -70,23 +70,22 @@ class ProcessGenerationUseCase:
                 generation_result.image_data, max_size=(400, 400)
             )
 
-            # Storage paths
-            filename = f"gen_{generation_request_id}.jpg"
-            thumb_filename = f"thumb_{generation_request_id}.jpg"
-            project_id = str(source_image.project_id)
+            # Storage paths — use full path as expected by StoragePort.upload(data, path, content_type)
+            storage_path = f"projects/{source_image.project_id}/generated/gen_{generation_request_id}.jpg"
+            thumbnail_path = f"projects/{source_image.project_id}/generated/thumb_{generation_request_id}.jpg"
 
-            storage_path = await self.storage.upload(
-                generation_result.image_data, project_id, filename, "image/jpeg"
+            await self.storage.upload(
+                generation_result.image_data, storage_path, "image/jpeg"
             )
-            thumbnail_path = await self.storage.upload(
-                thumbnail_data, project_id, thumb_filename, "image/jpeg"
+            await self.storage.upload(
+                thumbnail_data, thumbnail_path, "image/jpeg"
             )
 
             # Need to get width/height somehow, mocking 1024x1024 for generated image
             new_image_asset = ImageAsset(
                 project_id=source_image.project_id,
                 type="generated",
-                filename=filename,
+                filename=f"gen_{generation_request_id}.jpg",
                 mime_type="image/jpeg",
                 width=1024,
                 height=1024,

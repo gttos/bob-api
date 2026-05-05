@@ -49,7 +49,7 @@ class SQLAlchemyGenerationRepository(GenerationRepository):
             )
             self.session.add(model)
 
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(model)
         return self._to_entity(model)
 
@@ -99,7 +99,7 @@ class SQLAlchemyGenerationRepository(GenerationRepository):
             )
             self.session.add(model)
 
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(model)
         return self._variant_to_entity(model)
 
