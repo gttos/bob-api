@@ -7,6 +7,7 @@ from app.config.settings import settings
 from app.config.logging import configure_logging
 from app.api.middleware.correlation import CorrelationIDMiddleware
 from app.api.routers.health import router as health_router
+from app.api.routers.projects import router as projects_router
 from app.domain.shared.exceptions import (
     ResourceNotFoundError,
     InvalidStateTransitionError,
@@ -32,6 +33,7 @@ app.mount("/media", StaticFiles(directory=settings.STORAGE_LOCAL_PATH), name="me
 # Setup Main API Router
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router)
+api_router.include_router(projects_router)
 
 # Register API Router
 app.include_router(api_router)
