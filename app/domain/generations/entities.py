@@ -72,3 +72,15 @@ class ImageVariant:
     label: Optional[str] = None
     model: Optional[str] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+@dataclass
+class SceneInventory:
+    image_id: UUID
+    inventory_data: Optional[dict] = None
+    status: str = "pending"
+    error_message: Optional[str] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    id: UUID = field(default_factory=uuid4)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None

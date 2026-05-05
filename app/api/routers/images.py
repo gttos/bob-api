@@ -82,6 +82,16 @@ async def delete_image(
     await use_case.execute(image_id)
     return Response(status_code=204)
 
+from app.application.generations.get_comparison import GetComparisonUseCase
+from app.api.dependencies import get_comparison_uc
+
+@images_router.get("/{image_id}/comparison")
+async def get_comparison(
+    image_id: UUID,
+    use_case: GetComparisonUseCase = Depends(get_comparison_uc)
+):
+    return await use_case.execute(image_id)
+
 
 @images_router.get("/{image_id}/download")
 async def download_image(

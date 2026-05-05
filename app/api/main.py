@@ -6,10 +6,15 @@ from fastapi.staticfiles import StaticFiles
 from app.config.settings import settings
 from app.config.logging import configure_logging
 from app.api.middleware.correlation import CorrelationIDMiddleware
+from app.api.middleware.request_logging import RequestLoggingMiddleware
+from app.api.middleware.rate_limit import RateLimitMiddleware
 from app.api.routers.health import router as health_router
 from app.api.routers.projects import router as projects_router
 from app.api.routers.images import project_images_router, images_router
 from app.api.routers.generations import images_generations_router, generations_router
+from app.api.routers.scene_inventory import router as scene_inventory_router
+from app.api.routers.evaluations import router as evaluations_router
+from app.api.routers.stats import router as stats_router
 from app.domain.shared.exceptions import (
     DomainError,
 
@@ -28,6 +33,8 @@ app = FastAPI(
 )
 
 # Global Middlewares
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(CorrelationIDMiddleware)
 
 # Mount Static Files
@@ -42,6 +49,9 @@ api_router.include_router(project_images_router)
 api_router.include_router(images_router)
 api_router.include_router(images_generations_router)
 api_router.include_router(generations_router)
+api_router.include_router(scene_inventory_router)
+api_router.include_router(evaluations_router)
+api_router.include_router(stats_router)
 
 # Register API Router
 app.include_router(api_router)

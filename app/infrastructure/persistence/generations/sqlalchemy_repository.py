@@ -114,6 +114,59 @@ class SQLAlchemyGenerationRepository(GenerationRepository):
             return 1
         return max_version + 1
 
+    async def get_variant_by_id(self, variant_id: UUID) -> ImageVariant | None:
+        model = await self.session.get(ImageVariantModel, variant_id)
+        if not model:
+            return None
+        return ImageVariant(
+            id=model.id,
+            source_image_id=model.source_image_id,
+            generation_request_id=model.generation_request_id,
+            image_asset_id=model.image_asset_id,
+            version_number=model.version_number,
+            label=model.label,
+            provider=model.provider,
+            model=model.model,
+            created_at=model.created_at
+        )
+
+    async def get_generation_stats(self, group_by: str, project_id: UUID | None = None) -> dict:
+        from sqlalchemy import cast, Integer
+        from app.infrastructure.persistence.models import ImageAssetModel
+
+        if group_by not in ["provider", "status", "project"]:
+            group_by = "provider"
+
+        query = select(
+            getattr(GenerationRequestModel, group_by) if group_by != "project" else ImageAssetModel.project_id,
+            func.count(GenerationRequestModel.id).label("total"),
+            func.sum(cast(GenerationRequestModel.status == "completed", Integer)).label("completed"),
+            func.sum(cast(GenerationRequestModel.status == "failed", Integer)).label("failed")
+        )
+
+        if group_by == "project":
+            query = query.join(ImageAssetModel, GenerationRequestModel.source_image_id == ImageAssetModel.id)
+
+        if project_id:
+            if "ImageAssetModel" not in str(query):
+                 query = query.join(ImageAssetModel, GenerationRequestModel.source_image_id == ImageAssetModel.id)
+            query = query.where(ImageAssetModel.project_id == project_id)
+
+        query = query.group_by(getattr(GenerationRequestModel, group_by) if group_by != "project" else ImageAssetModel.project_id)
+
+        result = await self.session.execute(query)
+
+        stats = {}
+        for row in result:
+            key_val = str(row[0]) if row[0] is not None else "unknown"
+            stats[key_val] = {
+                "total": row[1],
+                "completed": row[2] or 0,
+                "failed": row[3] or 0
+            }
+
+        return stats
+
     def _to_entity(self, model: GenerationRequestModel) -> GenerationRequest:
         return GenerationRequest(
             id=model.id,
