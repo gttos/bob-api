@@ -41,6 +41,23 @@ async def test_upload_image_returns_201(test_client, async_session, mock_image_b
     assert data["url"] != ""
     assert data["thumbnail_url"] != ""
     assert "id" in data
+    assert "storage_path" not in data
+
+
+@pytest.mark.asyncio
+async def test_upload_invalid_mime_returns_422(test_client, async_session, mock_image_bytes):
+    project_id = uuid4()
+    project = ProjectModel(id=project_id, name="Test Project", owner_id=uuid4())
+    async_session.add(project)
+    await async_session.commit()
+
+    file_data = {
+        "file": ("test_image.txt", mock_image_bytes, "text/plain")
+    }
+
+    response = test_client.post(f"/api/v1/projects/{project_id}/images", files=file_data)
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -85,8 +102,8 @@ async def test_list_images_returns_paginated(test_client, async_session):
     project = ProjectModel(id=project_id, name="Test Project", owner_id=uuid4())
     async_session.add(project)
 
-    # Add 25 images
-    for i in range(25):
+    # Add 3 images
+    for i in range(3):
         image = ImageAssetModel(
             id=uuid4(),
             project_id=project_id,
@@ -102,14 +119,14 @@ async def test_list_images_returns_paginated(test_client, async_session):
 
     await async_session.commit()
 
-    response = test_client.get(f"/api/v1/projects/{project_id}/images?page=1&page_size=10")
+    response = test_client.get(f"/api/v1/projects/{project_id}/images?page=1&page_size=2")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["total"] == 25
+    assert data["total"] == 3
     assert data["page"] == 1
-    assert data["page_size"] == 10
-    assert len(data["items"]) == 10
+    assert data["page_size"] == 2
+    assert len(data["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -141,3 +158,25 @@ async def test_delete_image_returns_204(test_client, async_session):
     # Verify deletion
     verify_resp = test_client.get(f"/api/v1/images/{image_id}")
     assert verify_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_download_image_returns_file(test_client, async_session, mock_image_bytes):
+    # Setup - Create project first
+    project_id = uuid4()
+    project = ProjectModel(id=project_id, name="Test Project", owner_id=uuid4())
+    async_session.add(project)
+    await async_session.commit()
+
+    # Upload image
+    file_data = {
+        "file": ("test_image.jpg", mock_image_bytes, "image/jpeg")
+    }
+    upload_response = test_client.post(f"/api/v1/projects/{project_id}/images", files=file_data)
+    assert upload_response.status_code == 201
+    image_id = upload_response.json()["id"]
+
+    # Download image
+    download_response = test_client.get(f"/api/v1/images/{image_id}/download")
+    assert download_response.status_code == 200
+    assert download_response.headers["content-type"] == "image/jpeg"

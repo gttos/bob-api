@@ -40,7 +40,7 @@ def mock_thumbnail_service():
 
 
 @pytest.mark.asyncio
-async def test_upload_image_success(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_saves_and_returns(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
     # Setup
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
@@ -109,14 +109,14 @@ async def test_upload_image_project_not_found(mock_image_repo, mock_project_repo
 
 
 @pytest.mark.asyncio
-async def test_upload_image_invalid_mime_type(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_rejects_invalid_mime_type(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
 
     command = UploadImageCommand(
         project_id=project_id,
-        filename="test.txt",
-        content_type="text/plain",
+        filename="test.pdf",
+        content_type="application/pdf",
         file_data=b"fake_image_bytes"
     )
 
@@ -132,9 +132,11 @@ async def test_upload_image_invalid_mime_type(mock_image_repo, mock_project_repo
     with pytest.raises(DomainValidationError, match="Invalid content type"):
         await use_case.execute(command)
 
+    mock_storage.upload.assert_not_called()
+
 
 @pytest.mark.asyncio
-async def test_upload_image_file_too_large(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_rejects_oversized_file(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
 
@@ -158,6 +160,33 @@ async def test_upload_image_file_too_large(mock_image_repo, mock_project_repo, m
     )
 
     with pytest.raises(DomainValidationError, match="File size exceeds maximum allowed"):
+        await use_case.execute(command)
+
+    mock_storage.upload.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upload_image_rejects_nonexistent_project(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+    project_id = uuid4()
+    mock_project_repo.get_by_id.return_value = None
+
+    command = UploadImageCommand(
+        project_id=project_id,
+        filename="test.png",
+        content_type="image/png",
+        file_data=b"fake_image_bytes"
+    )
+
+    use_case = UploadImageUseCase(
+        image_repo=mock_image_repo,
+        project_repo=mock_project_repo,
+        storage=mock_storage,
+        thumbnail_service=mock_thumbnail_service,
+        allowed_mime_types=["image/jpeg", "image/png"],
+        max_upload_size_mb=5
+    )
+
+    with pytest.raises(ResourceNotFoundError):
         await use_case.execute(command)
 
 
@@ -210,7 +239,7 @@ async def test_list_images_success(mock_image_repo):
 
 
 @pytest.mark.asyncio
-async def test_delete_image_success(mock_image_repo, mock_storage):
+async def test_delete_image_removes_from_storage_and_repo(mock_image_repo, mock_storage):
     image_id = uuid4()
     mock_image_repo.get_by_id.return_value = ImageAsset(
         id=image_id,
@@ -233,7 +262,7 @@ async def test_delete_image_success(mock_image_repo, mock_storage):
 
 
 @pytest.mark.asyncio
-async def test_delete_image_not_found(mock_image_repo, mock_storage):
+async def test_delete_image_raises_not_found(mock_image_repo, mock_storage):
     image_id = uuid4()
     mock_image_repo.get_by_id.return_value = None
 
