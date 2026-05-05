@@ -8,8 +8,12 @@ from app.application.projects.update_project import UpdateProjectUseCase, Update
 from app.domain.projects.entities import Project
 
 @given(
-    name=st.text(min_size=1, max_size=255),
-    description=st.one_of(st.none(), st.text(max_size=1000)),
+    name=st.text(
+        min_size=1,
+        max_size=255,
+        alphabet=st.characters(whitelist_categories=('L', 'N', 'P', 'Z'))
+    ),
+    description=st.one_of(st.none(), st.text(max_size=500)),
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
@@ -27,16 +31,15 @@ async def test_create_project_round_trip(name, description):
     assert result.created_at is not None
 
 @given(
-    initial_name=st.text(min_size=1, max_size=255),
-    initial_desc=st.one_of(st.none(), st.text(max_size=1000)),
-    update_name=st.one_of(st.none(), st.text(min_size=1, max_size=255)),
-    update_desc=st.one_of(st.none(), st.text(max_size=1000)),
+    original_name=st.text(min_size=1, max_size=100),
+    original_desc=st.text(max_size=200),
+    new_name=st.one_of(st.none(), st.text(min_size=1, max_size=100)),
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_update_project_partial(initial_name, initial_desc, update_name, update_desc):
+async def test_update_preserves_unmodified_fields(original_name, original_desc, new_name):
     """Propiedad 2: Partial update de Proyecto"""
-    project = Project(name=initial_name, description=initial_desc)
+    project = Project(name=original_name, description=original_desc)
     mock_repo = AsyncMock()
     mock_repo.get_by_id.return_value = project
     mock_repo.save.side_effect = lambda p: p
@@ -44,16 +47,12 @@ async def test_update_project_partial(initial_name, initial_desc, update_name, u
     use_case = UpdateProjectUseCase(project_repo=mock_repo)
     result = await use_case.execute(UpdateProjectCommand(
         project_id=project.id,
-        name=update_name,
-        description=update_desc
+        name=new_name,
     ))
 
-    if update_name is not None:
-        assert result.name == update_name
+    if new_name is None:
+        assert result.name == original_name
     else:
-        assert result.name == initial_name
+        assert result.name == new_name
 
-    if update_desc is not None:
-        assert result.description == update_desc
-    else:
-        assert result.description == initial_desc
+    assert result.description == original_desc

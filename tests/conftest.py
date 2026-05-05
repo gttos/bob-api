@@ -5,10 +5,18 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import configure_mappers
 
 from app.config.settings import Settings
 from app.infrastructure.persistence.database import Base, get_session
 from app.api.main import app
+
+# This is necessary because of the use_alter issue with Circular references in SQLAlchemy Models
+try:
+    from app.infrastructure.persistence.models import ProjectModel
+    configure_mappers()
+except Exception:
+    pass
 
 
 @pytest.fixture

@@ -84,7 +84,7 @@ class ImageVariantModel(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     source_image = relationship("ImageAssetModel", foreign_keys=[source_image_id], back_populates="source_variants")
-    generation_request = relationship("GenerationRequestModel", foreign_keys=[generation_request_id], back_populates="output_variant")
+    generation_request = relationship("GenerationRequestModel", foreign_keys=[generation_request_id])
     image_asset = relationship("ImageAssetModel", foreign_keys=[image_asset_id])
     evaluation = relationship("EvaluationModel", back_populates="variant", uselist=False, cascade="all, delete-orphan")
 
