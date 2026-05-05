@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import JSON
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ from app.infrastructure.persistence.database import Base
 
 class ProjectModel(Base):
     __tablename__ = "projects"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     owner_id = Column(UUID(as_uuid=True), nullable=True)
@@ -19,7 +20,7 @@ class ProjectModel(Base):
 
 class ImageAssetModel(Base):
     __tablename__ = "image_assets"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     type = Column(String(20), nullable=False)  # "original" | "generated"
     filename = Column(String(255), nullable=False)
@@ -36,9 +37,9 @@ class ImageAssetModel(Base):
 
 class SceneInventoryModel(Base):
     __tablename__ = "scene_inventories"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     image_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="CASCADE"), unique=True, nullable=False)
-    inventory_data = Column(JSONB, nullable=True)
+    inventory_data = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     status = Column(String(20), nullable=False, default="pending")
     error_message = Column(Text, nullable=True)
     provider = Column(String(50), nullable=True)
@@ -50,7 +51,7 @@ class SceneInventoryModel(Base):
 
 class GenerationRequestModel(Base):
     __tablename__ = "generation_requests"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     source_image_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="CASCADE"), nullable=False)
     mode = Column(String(30), nullable=False)
     preset = Column(String(50), nullable=True)
@@ -61,7 +62,7 @@ class GenerationRequestModel(Base):
     error_message = Column(Text, nullable=True)
     prompt_final = Column(Text, nullable=True)
     negative_prompt = Column(Text, nullable=True)
-    provider_params = Column(JSONB, nullable=True)
+    provider_params = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     output_image_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="SET NULL", use_alter=True), nullable=True)
     output_variant_id = Column(UUID(as_uuid=True), ForeignKey("image_variants.id", ondelete="SET NULL", use_alter=True, name="fk_generation_request_output_variant"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -72,7 +73,7 @@ class GenerationRequestModel(Base):
 
 class ImageVariantModel(Base):
     __tablename__ = "image_variants"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     source_image_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="CASCADE"), nullable=False)
     generation_request_id = Column(UUID(as_uuid=True), ForeignKey("generation_requests.id", ondelete="CASCADE"), nullable=False)
     image_asset_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="CASCADE"), nullable=False)
@@ -89,7 +90,7 @@ class ImageVariantModel(Base):
 
 class EvaluationModel(Base):
     __tablename__ = "evaluations"
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
     variant_id = Column(UUID(as_uuid=True), ForeignKey("image_variants.id", ondelete="CASCADE"), unique=True, nullable=False)
     geometry = Column(Integer, nullable=False)
     architecture = Column(Integer, nullable=False)
