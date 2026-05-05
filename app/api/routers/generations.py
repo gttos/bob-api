@@ -34,9 +34,15 @@ async def request_generation(
 ):
     correlation_id = request.headers.get("X-Correlation-ID")
 
+    try:
+        mode = GenerationMode(request_data.mode)
+    except ValueError:
+        from app.domain.shared.exceptions import DomainValidationError
+        raise DomainValidationError(f"Invalid mode: {request_data.mode}")
+
     command = RequestGenerationCommand(
         image_id=image_id,
-        mode=GenerationMode(request_data.mode),
+        mode=mode,
         provider=request_data.provider,
         preset=request_data.preset,
         instructions=request_data.instructions

@@ -13,7 +13,7 @@ class AIProviderRegistryProtocol(Protocol):
         ...
 
 class ThumbnailServiceProtocol(Protocol):
-    def generate_thumbnail(self, image_data: bytes, width: int, height: int) -> bytes:
+    def generate(self, image_data: bytes, max_size: tuple[int, int] = (400, 400)) -> bytes:
         ...
 
 class ProcessGenerationUseCase:
@@ -66,8 +66,8 @@ class ProcessGenerationUseCase:
             provider = self.ai_provider_registry.get(request.provider)
             generation_result = await provider.generate_variant(image_data, prompt_result)
 
-            thumbnail_data = self.thumbnail_service.generate_thumbnail(
-                generation_result.image_data, width=400, height=400
+            thumbnail_data = self.thumbnail_service.generate(
+                generation_result.image_data, max_size=(400, 400)
             )
 
             # Storage paths
