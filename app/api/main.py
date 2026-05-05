@@ -9,7 +9,10 @@ from app.api.middleware.correlation import CorrelationIDMiddleware
 from app.api.routers.health import router as health_router
 from app.api.routers.projects import router as projects_router
 from app.api.routers.images import project_images_router, images_router
+from app.api.routers.generations import images_generations_router, generations_router
 from app.domain.shared.exceptions import (
+    DomainError,
+
     ResourceNotFoundError,
     InvalidStateTransitionError,
     DomainValidationError,
@@ -37,6 +40,8 @@ api_router.include_router(health_router)
 api_router.include_router(projects_router)
 api_router.include_router(project_images_router)
 api_router.include_router(images_router)
+api_router.include_router(images_generations_router)
+api_router.include_router(generations_router)
 
 # Register API Router
 app.include_router(api_router)
@@ -53,6 +58,13 @@ async def invalid_state_transition_handler(request: Request, exc: InvalidStateTr
 @app.exception_handler(DomainValidationError)
 async def domain_validation_handler(request: Request, exc: DomainValidationError):
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError):
+    # Just generic fallback, some like DomainValidationError have specific handlers
+    if isinstance(exc, (ResourceNotFoundError, InvalidStateTransitionError, DomainValidationError, DuplicateResourceError)):
+        raise exc
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 @app.exception_handler(DuplicateResourceError)
 async def duplicate_resource_handler(request: Request, exc: DuplicateResourceError):

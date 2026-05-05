@@ -86,3 +86,45 @@ def get_delete_image_uc(
 ) -> ImageDeleteImageUseCase:
     image_repo = SQLAlchemyImageRepository(session)
     return ImageDeleteImageUseCase(image_repo=image_repo, storage=storage)
+
+from app.infrastructure.tasks.celery_queue_adapter import CeleryTaskQueueAdapter
+from app.infrastructure.tasks.celery_app import celery_app
+from app.infrastructure.persistence.generations.sqlalchemy_repository import SQLAlchemyGenerationRepository
+from app.application.generations.request_generation import RequestGenerationUseCase
+from app.application.generations.get_generation import GetGenerationUseCase
+from app.application.generations.list_generations import ListGenerationsUseCase
+
+def get_task_queue() -> CeleryTaskQueueAdapter:
+    return CeleryTaskQueueAdapter(celery_app)
+
+def get_request_generation_uc(
+    session: AsyncSession = Depends(get_session),
+    task_queue: CeleryTaskQueueAdapter = Depends(get_task_queue)
+) -> RequestGenerationUseCase:
+    generation_repo = SQLAlchemyGenerationRepository(session)
+    image_repo = SQLAlchemyImageRepository(session)
+    return RequestGenerationUseCase(
+        generation_repo=generation_repo,
+        image_repo=image_repo,
+        task_queue=task_queue
+    )
+
+def get_get_generation_uc(
+    session: AsyncSession = Depends(get_session)
+) -> GetGenerationUseCase:
+    generation_repo = SQLAlchemyGenerationRepository(session)
+    return GetGenerationUseCase(generation_repo=generation_repo)
+
+def get_list_generations_uc(
+    session: AsyncSession = Depends(get_session)
+) -> ListGenerationsUseCase:
+    generation_repo = SQLAlchemyGenerationRepository(session)
+    return ListGenerationsUseCase(generation_repo=generation_repo)
+
+from app.infrastructure.ai_providers.registry import AIProviderRegistry
+from app.infrastructure.ai_providers.openai_provider import OpenAIProvider
+
+def get_ai_provider_registry() -> AIProviderRegistry:
+    registry = AIProviderRegistry()
+    registry.register(OpenAIProvider(api_key=settings.OPENAI_API_KEY))
+    return registry
