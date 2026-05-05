@@ -73,3 +73,19 @@ def test_client(async_session):
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def mock_celery(monkeypatch):
+    class MockCeleryApp:
+        def send_task(self, task_name, args=None, kwargs=None):
+            class MockResult:
+                id = "mock-task-id"
+            return MockResult()
+
+    from app.infrastructure.tasks.celery_queue_adapter import CeleryTaskQueueAdapter
+
+    def mock_get_task_queue():
+        return CeleryTaskQueueAdapter(MockCeleryApp())
+
+    from app.api.dependencies import get_task_queue
+    app.dependency_overrides[get_task_queue] = mock_get_task_queue

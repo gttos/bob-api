@@ -47,3 +47,30 @@ class ImageRepository(ABC):
     @abstractmethod
     async def delete(self, image_id: UUID) -> None:
         pass
+
+from app.domain.generations.entities import GenerationRequest, ImageVariant
+
+class GenerationRepository(ABC):
+    @abstractmethod
+    async def save(self, request: GenerationRequest) -> GenerationRequest:
+        pass
+
+    @abstractmethod
+    async def get_by_id(self, id: UUID) -> GenerationRequest | None:
+        pass
+
+    @abstractmethod
+    async def list_by_image(self, image_id: UUID, offset: int, limit: int) -> list[GenerationRequest]:
+        pass
+
+    @abstractmethod
+    async def count_by_image(self, image_id: UUID) -> int:
+        pass
+
+    @abstractmethod
+    async def save_variant(self, variant: ImageVariant) -> ImageVariant:
+        pass
+
+    @abstractmethod
+    async def get_next_version_number(self, source_image_id: UUID) -> int:
+        pass
