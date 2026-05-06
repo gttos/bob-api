@@ -72,3 +72,52 @@ def process_generation(self, generation_request_id: str, correlation_id: str = "
         # For now we'll just log and let it fail.
         # ProcessGenerationUseCase already marks as failed in db
         raise
+
+from app.infrastructure.persistence.generations.scene_inventory_repository import SQLAlchemySceneInventoryRepository
+from app.application.generations.process_scene_analysis import ProcessSceneAnalysisUseCase
+
+async def _analyze_scene_async(image_id_str: str, correlation_id: str = ""):
+    structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
+    logger.info("Starting analyze_scene task", image_id=image_id_str)
+
+    image_id = UUID(image_id_str)
+
+    async with AsyncSessionLocal() as session:
+        scene_repo = SQLAlchemySceneInventoryRepository(session)
+        image_repo = SQLAlchemyImageRepository(session)
+        storage = LocalStorageAdapter(
+            base_path=settings.STORAGE_LOCAL_PATH,
+            media_url_prefix=settings.MEDIA_URL_PREFIX
+        )
+        ai_provider_registry = get_ai_provider_registry()
+
+        use_case = ProcessSceneAnalysisUseCase(
+            scene_repo=scene_repo,
+            image_repo=image_repo,
+            storage=storage,
+            ai_provider_registry=ai_provider_registry
+        )
+
+        await use_case.execute(image_id)
+
+    logger.info("Finished analyze_scene task", image_id=image_id_str)
+
+@celery_app.task(bind=True, max_retries=2, default_retry_delay=30)
+def analyze_scene(self, image_id: str, correlation_id: str = ""):
+    # Clear contextvars
+    structlog.contextvars.clear_contextvars()
+    if correlation_id:
+        structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
+
+    try:
+        # Run async function in sync task
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(_analyze_scene_async(image_id, correlation_id))
+    except Exception as exc:
+        logger.error("Error in analyze_scene task", exc_info=True, image_id=image_id)
+        # Note: In a real environment we might want to catch specific provider errors and self.retry() here.
+        raise

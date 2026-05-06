@@ -128,3 +128,66 @@ def get_ai_provider_registry() -> AIProviderRegistry:
     registry = AIProviderRegistry()
     registry.register(OpenAIProvider(api_key=settings.OPENAI_API_KEY))
     return registry
+
+from app.infrastructure.persistence.generations.scene_inventory_repository import SQLAlchemySceneInventoryRepository
+from app.application.generations.analyze_scene import AnalyzeSceneUseCase
+from app.application.generations.get_scene_inventory import GetSceneInventoryUseCase
+
+def get_analyze_scene_uc(
+    session: AsyncSession = Depends(get_session),
+    task_queue: CeleryTaskQueueAdapter = Depends(get_task_queue)
+) -> AnalyzeSceneUseCase:
+    scene_repo = SQLAlchemySceneInventoryRepository(session)
+    image_repo = SQLAlchemyImageRepository(session)
+    return AnalyzeSceneUseCase(
+        scene_repo=scene_repo,
+        image_repo=image_repo,
+        task_queue=task_queue
+    )
+
+def get_get_scene_inventory_uc(
+    session: AsyncSession = Depends(get_session)
+) -> GetSceneInventoryUseCase:
+    scene_repo = SQLAlchemySceneInventoryRepository(session)
+    return GetSceneInventoryUseCase(scene_repo=scene_repo)
+
+from app.infrastructure.persistence.evaluations.sqlalchemy_repository import SQLAlchemyEvaluationRepository
+from app.application.evaluations.create_evaluation import CreateEvaluationUseCase
+from app.application.evaluations.get_evaluation import GetEvaluationUseCase as EvalGetEvaluationUseCase
+from app.application.evaluations.update_evaluation import UpdateEvaluationUseCase
+
+def get_create_evaluation_uc(
+    session: AsyncSession = Depends(get_session)
+) -> CreateEvaluationUseCase:
+    eval_repo = SQLAlchemyEvaluationRepository(session)
+    gen_repo = SQLAlchemyGenerationRepository(session)
+    return CreateEvaluationUseCase(evaluation_repo=eval_repo, generation_repo=gen_repo)
+
+def get_get_evaluation_uc(
+    session: AsyncSession = Depends(get_session)
+) -> EvalGetEvaluationUseCase:
+    eval_repo = SQLAlchemyEvaluationRepository(session)
+    return EvalGetEvaluationUseCase(evaluation_repo=eval_repo)
+
+def get_update_evaluation_uc(
+    session: AsyncSession = Depends(get_session)
+) -> UpdateEvaluationUseCase:
+    eval_repo = SQLAlchemyEvaluationRepository(session)
+    return UpdateEvaluationUseCase(evaluation_repo=eval_repo)
+
+from app.application.generations.get_comparison import GetComparisonUseCase
+from app.application.stats.get_generation_stats import GetGenerationStatsUseCase
+
+def get_comparison_uc(
+    session: AsyncSession = Depends(get_session),
+    storage: StoragePort = Depends(get_storage)
+) -> GetComparisonUseCase:
+    img_repo = SQLAlchemyImageRepository(session)
+    gen_repo = SQLAlchemyGenerationRepository(session)
+    return GetComparisonUseCase(image_repo=img_repo, generation_repo=gen_repo, storage=storage)
+
+def get_generation_stats_uc(
+    session: AsyncSession = Depends(get_session)
+) -> GetGenerationStatsUseCase:
+    gen_repo = SQLAlchemyGenerationRepository(session)
+    return GetGenerationStatsUseCase(generation_repo=gen_repo)

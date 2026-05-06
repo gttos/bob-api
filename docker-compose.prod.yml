@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kiro_user
+      POSTGRES_PASSWORD: kiro_password
+      POSTGRES_DB: kiro_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: always
+
+  api:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://kiro_user:kiro_password@db:5432/kiro_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_LOCAL_PATH=/app/media
+      - MEDIA_URL_PREFIX=/media
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_ENABLED=true
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      - db
+      - redis
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+    restart: always
+
+  celery-worker:
+    build:
+      context: .
+      target: production
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://kiro_user:kiro_password@db:5432/kiro_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_LOCAL_PATH=/app/media
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      - db
+      - redis
+    command: >
+      sh -c "celery -A app.infrastructure.tasks.celery_app worker -l info -c 4"
+    restart: always
+
+volumes:
+  pg_data:
+  redis_data:
+  media_data:

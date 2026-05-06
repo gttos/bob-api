@@ -74,3 +74,37 @@ class GenerationRepository(ABC):
     @abstractmethod
     async def get_next_version_number(self, source_image_id: UUID) -> int:
         pass
+
+    @abstractmethod
+    async def get_variant_by_id(self, variant_id: UUID) -> ImageVariant | None:
+        pass
+
+    @abstractmethod
+    async def get_generation_stats(self, group_by: str, project_id: UUID | None = None) -> dict:
+        pass
+
+from app.domain.generations.entities import SceneInventory
+
+class SceneInventoryRepository(ABC):
+    @abstractmethod
+    async def save(self, inventory: SceneInventory) -> SceneInventory:
+        pass
+
+    @abstractmethod
+    async def get_by_image_id(self, image_id: UUID) -> SceneInventory | None:
+        pass
+
+from app.domain.evaluations.entities import Evaluation
+
+class EvaluationRepository(ABC):
+    @abstractmethod
+    async def save(self, evaluation: Evaluation) -> Evaluation:
+        pass
+
+    @abstractmethod
+    async def get_by_variant_id(self, variant_id: UUID) -> Evaluation | None:
+        pass
+
+    @abstractmethod
+    async def get_by_id(self, evaluation_id: UUID) -> Evaluation | None:
+        pass
