@@ -1,0 +1,371 @@
+{
+  "info": {
+    "name": "Interior AI Backend - MVP",
+    "description": "Complete API collection for the Interior AI Backend MVP. Covers all endpoints: Projects, Images, Generations, Scene Inventory, Evaluations, Comparison, and Stats.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1" },
+    { "key": "project_id", "value": "" },
+    { "key": "image_id", "value": "" },
+    { "key": "generation_id", "value": "" },
+    { "key": "variant_id", "value": "" },
+    { "key": "evaluation_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('project_id', json.id);",
+                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/projects",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apartamento Centro Madrid\",\n  \"description\": \"Piso de 90m2 para reformar y vender\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/projects?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["projects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/projects/{{project_id}}"
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/projects/{{project_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apartamento Centro Madrid - Reformado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/projects/{{project_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "item": [
+        {
+          "name": "Upload Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('image_id', json.id);",
+                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });",
+                  "pm.test('Has URL', function() { pm.expect(json.url).to.not.be.empty; });",
+                  "pm.test('No storage_path exposed', function() { pm.expect(json.storage_path).to.be.undefined; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/projects/{{project_id}}/images",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Select a JPEG, PNG, or WebP image file"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Images by Project",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/images?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "{{project_id}}", "images"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Image",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/images/{{image_id}}"
+          }
+        },
+        {
+          "name": "Download Image",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/images/{{image_id}}/download"
+          }
+        },
+        {
+          "name": "Delete Image",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/images/{{image_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generations",
+      "item": [
+        {
+          "name": "Request Generation - Commercial Enhancement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('generation_id', json.id);",
+                  "pm.test('Status 202', function() { pm.response.to.have.status(202); });",
+                  "pm.test('Status is pending', function() { pm.expect(json.status).to.eql('pending'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"commercial_enhancement\",\n  \"provider\": \"openai\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Generation - Style Redesign",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"style_redesign\",\n  \"preset\": \"modern_mediterranean\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Make it feel warm and inviting\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Generation - Localized Edit",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"localized_edit\",\n  \"preset\": \"localized_wall_art\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace wall art with colorful abstract paintings\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Generation Status",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/generations/{{generation_id}}"
+          }
+        },
+        {
+          "name": "List Generations by Image",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/images/{{image_id}}/generations?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["images", "{{image_id}}", "generations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scene Inventory",
+      "item": [
+        {
+          "name": "Request Scene Analysis",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/scene-inventory"
+          }
+        },
+        {
+          "name": "Get Scene Inventory",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/images/{{image_id}}/scene-inventory"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comparison",
+      "item": [
+        {
+          "name": "Get Image Comparison",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/images/{{image_id}}/comparison",
+            "description": "Returns original image + all generated variants with URLs and generation metadata"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Evaluations",
+      "item": [
+        {
+          "name": "Create Evaluation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('evaluation_id', json.id);",
+                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/image-variants/{{variant_id}}/evaluation",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"geometry\": 5,\n  \"architecture\": 4,\n  \"perspective\": 4,\n  \"photorealism\": 3,\n  \"commercial_quality\": 4,\n  \"instruction_obedience\": 5,\n  \"style_differentiation\": 4,\n  \"localized_edit_accuracy\": 3,\n  \"human_retouch_needed\": 2,\n  \"construction_company_fit\": 4,\n  \"verdict\": \"usable_with_retouch\",\n  \"notes\": \"Good overall but needs minor color correction\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Evaluation",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/image-variants/{{variant_id}}/evaluation"
+          }
+        },
+        {
+          "name": "Update Evaluation (Partial)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/evaluations/{{evaluation_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"photorealism\": 5,\n  \"verdict\": \"approved\",\n  \"notes\": \"After review, quality is excellent\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "Get Stats by Provider",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/stats/generations?group_by=provider",
+              "host": ["{{base_url}}"],
+              "path": ["stats", "generations"],
+              "query": [{ "key": "group_by", "value": "provider" }]
+            }
+          }
+        },
+        {
+          "name": "Get Stats by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/stats/generations?group_by=status",
+              "host": ["{{base_url}}"],
+              "path": ["stats", "generations"],
+              "query": [{ "key": "group_by", "value": "status" }]
+            }
+          }
+        },
+        {
+          "name": "Get Stats by Project",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/stats/generations?group_by=project&project_id={{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["stats", "generations"],
+              "query": [
+                { "key": "group_by", "value": "project" },
+                { "key": "project_id", "value": "{{project_id}}" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

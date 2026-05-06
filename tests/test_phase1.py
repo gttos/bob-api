@@ -3,13 +3,14 @@ import structlog
 from app.config.settings import settings
 
 def test_health_endpoint(test_client, monkeypatch):
-    monkeypatch.setenv("APP_ENV", "test")
-    settings.APP_ENV = "test"
     response = test_client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ok"
+    # Status can be "ok" or "degraded" (Redis may not be available in test env)
+    assert data["status"] in ("ok", "degraded")
     assert data["version"] == "1.0.0"
+    assert data["db"] == "ok"
+    assert "redis" in data
 
 def test_correlation_id_is_returned_in_response_header(test_client):
     response = test_client.get("/api/v1/health")
