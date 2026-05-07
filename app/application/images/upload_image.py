@@ -5,7 +5,7 @@ import mimetypes
 
 from app.domain.images.entities import ImageAsset
 from app.domain.shared.exceptions import ResourceNotFoundError, DomainValidationError
-from app.application.ports.repository_ports import ImageRepository, ProjectRepository
+from app.application.ports.repository_ports import ImageRepository, ProjectRepository, SpaceRepository
 from app.application.ports.storage_port import StoragePort
 from app.application.ports.task_queue_port import TaskQueuePort
 
@@ -16,6 +16,7 @@ class UploadImageCommand:
     filename: str
     content_type: str
     file_data: bytes
+    space_id: UUID | None = None
 
 
 class ThumbnailService(Protocol):
@@ -31,6 +32,7 @@ class UploadImageUseCase:
         self,
         image_repo: ImageRepository,
         project_repo: ProjectRepository,
+        space_repo: SpaceRepository,
         storage: StoragePort,
         thumbnail_service: ThumbnailService,
         allowed_mime_types: list[str],
@@ -39,6 +41,7 @@ class UploadImageUseCase:
     ):
         self.image_repo = image_repo
         self.project_repo = project_repo
+        self.space_repo = space_repo
         self.storage = storage
         self.thumbnail_service = thumbnail_service
         self.allowed_mime_types = allowed_mime_types
@@ -50,6 +53,12 @@ class UploadImageUseCase:
         project = await self.project_repo.get_by_id(command.project_id)
         if not project:
             raise ResourceNotFoundError(f"Project with ID {command.project_id} not found")
+
+        # Verify space exists and belongs to the project
+        if command.space_id:
+            space = await self.space_repo.get_by_id(command.space_id)
+            if not space or space.project_id != command.project_id:
+                raise ResourceNotFoundError(f"Space with ID {command.space_id} not found in this project")
 
         # Validate content_type against allowed_mime_types
         if command.content_type not in self.allowed_mime_types:
@@ -105,7 +114,8 @@ class UploadImageUseCase:
             width=width,
             height=height,
             storage_path=storage_path,
-            thumbnail_path=thumbnail_path
+            thumbnail_path=thumbnail_path,
+            space_id=command.space_id
         )
 
         saved = await self.image_repo.save(image_asset)

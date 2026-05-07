@@ -57,6 +57,25 @@ class SQLAlchemyImageRepository(ImageRepository):
         )
         return result.scalar_one()
 
+    async def list_by_space(self, space_id: UUID, offset: int = 0, limit: int = 20) -> list[ImageAsset]:
+        result = await self._session.execute(
+            select(ImageAssetModel)
+            .where(ImageAssetModel.space_id == space_id)
+            .where(ImageAssetModel.deleted_at.is_(None))
+            .order_by(ImageAssetModel.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return [self._to_entity(m) for m in result.scalars()]
+
+    async def count_by_space(self, space_id: UUID) -> int:
+        result = await self._session.execute(
+            select(func.count(ImageAssetModel.id))
+            .where(ImageAssetModel.space_id == space_id)
+            .where(ImageAssetModel.deleted_at.is_(None))
+        )
+        return result.scalar_one()
+
     async def delete(self, image_id: UUID) -> None:
         model = await self._session.get(ImageAssetModel, image_id)
         if model is not None:
@@ -74,6 +93,8 @@ class SQLAlchemyImageRepository(ImageRepository):
             height=model.height,
             storage_path=model.storage_path,
             thumbnail_path=model.thumbnail_path,
+            space_id=model.space_id,
+            parent_image_id=model.parent_image_id,
             created_at=model.created_at,
         )
 
@@ -88,5 +109,7 @@ class SQLAlchemyImageRepository(ImageRepository):
             height=entity.height,
             storage_path=entity.storage_path,
             thumbnail_path=entity.thumbnail_path,
+            space_id=entity.space_id,
+            parent_image_id=entity.parent_image_id,
             created_at=entity.created_at,
         )

@@ -14,4 +14,6 @@ class ImageAsset:
     height: int | None = None
     storage_path: str = ""
     thumbnail_path: str | None = None
+    space_id: UUID | None = None
+    parent_image_id: UUID | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

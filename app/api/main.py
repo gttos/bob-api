@@ -10,6 +10,7 @@ from app.api.middleware.request_logging import RequestLoggingMiddleware
 from app.api.middleware.rate_limit import RateLimitMiddleware
 from app.api.routers.health import router as health_router
 from app.api.routers.projects import router as projects_router
+from app.api.routers.spaces import project_spaces_router, spaces_router
 from app.api.routers.images import project_images_router, images_router
 from app.api.routers.generations import images_generations_router, generations_router
 from app.api.routers.scene_inventory import router as scene_inventory_router
@@ -45,6 +46,8 @@ app.mount("/media", StaticFiles(directory=settings.STORAGE_LOCAL_PATH), name="me
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router)
 api_router.include_router(projects_router)
+api_router.include_router(project_spaces_router)
+api_router.include_router(spaces_router)
 api_router.include_router(project_images_router)
 api_router.include_router(images_router)
 api_router.include_router(images_generations_router)

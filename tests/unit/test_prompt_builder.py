@@ -5,7 +5,7 @@ from app.domain.generations.entities import GenerationMode
 def test_build_commercial_enhancement():
     builder = PromptBuilder()
     config = PromptConfig(
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai",
         preset="commercial_enhancement"
     )
@@ -49,7 +49,7 @@ def test_build_all_presets_produce_valid_output():
 def test_build_with_user_instructions_appends_to_prompt():
     builder = PromptBuilder()
     config = PromptConfig(
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai",
         preset="commercial_enhancement",
         user_instructions="make it blue"
