@@ -131,7 +131,9 @@ class ProcessGenerationUseCase:
                 width=1024,
                 height=1024,
                 storage_path=storage_path,
-                thumbnail_path=thumbnail_path
+                thumbnail_path=thumbnail_path,
+                parent_image_id=source_image.id,
+                space_id=source_image.space_id
             )
             saved_image_asset = await self.image_repo.save(new_image_asset)
 

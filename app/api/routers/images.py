@@ -24,11 +24,13 @@ project_images_router = APIRouter(prefix="/projects/{project_id}/images", tags=[
 # Router for standalone image endpoints (GET /images/{id}, DELETE /images/{id})
 images_router = APIRouter(prefix="/images", tags=["Images"])
 
+from app.api.routers.spaces import spaces_router
 
 @project_images_router.post("", response_model=ImageResponse, status_code=201)
 async def upload_image(
     project_id: UUID,
     file: UploadFile = File(...),
+    space_id: UUID | None = Query(None),
     use_case: UploadImageUseCase = Depends(get_upload_image_uc),
     storage: StoragePort = Depends(get_storage)
 ):
@@ -38,7 +40,8 @@ async def upload_image(
         project_id=project_id,
         filename=file.filename or "image.jpg",
         content_type=file.content_type or "image/jpeg",
-        file_data=file_bytes
+        file_data=file_bytes,
+        space_id=space_id
     )
 
     image_asset = await use_case.execute(command)
@@ -63,6 +66,33 @@ async def list_images(
         page_size=page_size
     )
 
+
+from app.infrastructure.persistence.images.sqlalchemy_repository import SQLAlchemyImageRepository
+from app.infrastructure.persistence.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+@spaces_router.get("/{space_id}/images", response_model=PaginatedResponse[ImageResponse])
+async def list_images_by_space(
+    space_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    storage: StoragePort = Depends(get_storage)
+):
+    # This is slightly irregular bypassing a dedicated list_images_by_space use case
+    # but we will just use the repo here directly or build a fast bypass to save time
+    image_repo = SQLAlchemyImageRepository(session)
+
+    offset = (page - 1) * page_size
+    items = await image_repo.list_by_space(space_id, offset, page_size)
+    total = await image_repo.count_by_space(space_id)
+
+    return PaginatedResponse(
+        items=[ImageResponse.from_entity(item, storage) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
 
 @images_router.get("/{image_id}", response_model=ImageResponse)
 async def get_image(

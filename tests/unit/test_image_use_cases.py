@@ -32,6 +32,11 @@ def mock_storage():
 
 
 @pytest.fixture
+def mock_space_repo():
+    repo = AsyncMock()
+    return repo
+
+@pytest.fixture
 def mock_thumbnail_service():
     service = MagicMock()
     service.get_image_dimensions.return_value = (800, 600)
@@ -40,7 +45,7 @@ def mock_thumbnail_service():
 
 
 @pytest.mark.asyncio
-async def test_upload_image_saves_and_returns(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_saves_and_returns(mock_image_repo, mock_project_repo, mock_space_repo, mock_storage, mock_thumbnail_service):
     # Setup
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
@@ -55,6 +60,7 @@ async def test_upload_image_saves_and_returns(mock_image_repo, mock_project_repo
     use_case = UploadImageUseCase(
         image_repo=mock_image_repo,
         project_repo=mock_project_repo,
+        space_repo=mock_space_repo,
         storage=mock_storage,
         thumbnail_service=mock_thumbnail_service,
         allowed_mime_types=["image/jpeg", "image/png"],
@@ -84,7 +90,7 @@ async def test_upload_image_saves_and_returns(mock_image_repo, mock_project_repo
 
 
 @pytest.mark.asyncio
-async def test_upload_image_project_not_found(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_project_not_found(mock_image_repo, mock_project_repo, mock_space_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = None
 
@@ -98,6 +104,7 @@ async def test_upload_image_project_not_found(mock_image_repo, mock_project_repo
     use_case = UploadImageUseCase(
         image_repo=mock_image_repo,
         project_repo=mock_project_repo,
+        space_repo=mock_space_repo,
         storage=mock_storage,
         thumbnail_service=mock_thumbnail_service,
         allowed_mime_types=["image/jpeg", "image/png"],
@@ -109,7 +116,7 @@ async def test_upload_image_project_not_found(mock_image_repo, mock_project_repo
 
 
 @pytest.mark.asyncio
-async def test_upload_image_rejects_invalid_mime_type(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_rejects_invalid_mime_type(mock_image_repo, mock_project_repo, mock_space_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
 
@@ -123,6 +130,7 @@ async def test_upload_image_rejects_invalid_mime_type(mock_image_repo, mock_proj
     use_case = UploadImageUseCase(
         image_repo=mock_image_repo,
         project_repo=mock_project_repo,
+        space_repo=mock_space_repo,
         storage=mock_storage,
         thumbnail_service=mock_thumbnail_service,
         allowed_mime_types=["image/jpeg", "image/png"],
@@ -136,7 +144,7 @@ async def test_upload_image_rejects_invalid_mime_type(mock_image_repo, mock_proj
 
 
 @pytest.mark.asyncio
-async def test_upload_image_rejects_oversized_file(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_rejects_oversized_file(mock_image_repo, mock_project_repo, mock_space_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = Project(id=project_id, name="Test Project", owner_id="user1")
 
@@ -153,6 +161,7 @@ async def test_upload_image_rejects_oversized_file(mock_image_repo, mock_project
     use_case = UploadImageUseCase(
         image_repo=mock_image_repo,
         project_repo=mock_project_repo,
+        space_repo=mock_space_repo,
         storage=mock_storage,
         thumbnail_service=mock_thumbnail_service,
         allowed_mime_types=["image/jpeg", "image/png"],
@@ -166,7 +175,7 @@ async def test_upload_image_rejects_oversized_file(mock_image_repo, mock_project
 
 
 @pytest.mark.asyncio
-async def test_upload_image_rejects_nonexistent_project(mock_image_repo, mock_project_repo, mock_storage, mock_thumbnail_service):
+async def test_upload_image_rejects_nonexistent_project(mock_image_repo, mock_project_repo, mock_space_repo, mock_storage, mock_thumbnail_service):
     project_id = uuid4()
     mock_project_repo.get_by_id.return_value = None
 
@@ -180,6 +189,7 @@ async def test_upload_image_rejects_nonexistent_project(mock_image_repo, mock_pr
     use_case = UploadImageUseCase(
         image_repo=mock_image_repo,
         project_repo=mock_project_repo,
+        space_repo=mock_space_repo,
         storage=mock_storage,
         thumbnail_service=mock_thumbnail_service,
         allowed_mime_types=["image/jpeg", "image/png"],

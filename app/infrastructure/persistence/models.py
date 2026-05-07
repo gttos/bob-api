@@ -18,6 +18,19 @@ class ProjectModel(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     images = relationship("ImageAssetModel", back_populates="project", cascade="all, delete-orphan")
+    spaces = relationship("SpaceModel", back_populates="project", cascade="all, delete-orphan")
+
+class SpaceModel(Base):
+    __tablename__ = "spaces"
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("(gen_random_uuid())"), default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    project = relationship("ProjectModel", back_populates="spaces")
+    images = relationship("ImageAssetModel", back_populates="space")
 
 class ImageAssetModel(Base):
     __tablename__ = "image_assets"
@@ -33,8 +46,12 @@ class ImageAssetModel(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     thumbnail_path = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    space_id = Column(UUID(as_uuid=True), ForeignKey("spaces.id", ondelete="SET NULL"), nullable=True)
+    parent_image_id = Column(UUID(as_uuid=True), ForeignKey("image_assets.id", ondelete="SET NULL"), nullable=True)
 
     project = relationship("ProjectModel", back_populates="images")
+    space = relationship("SpaceModel", back_populates="images")
+    parent_image = relationship("ImageAssetModel", remote_side=[id], backref="children")
     scene_inventory = relationship("SceneInventoryModel", back_populates="image", uselist=False, cascade="all, delete-orphan")
     source_variants = relationship("ImageVariantModel", foreign_keys="ImageVariantModel.source_image_id", back_populates="source_image")
 

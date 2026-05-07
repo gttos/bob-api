@@ -36,7 +36,7 @@ async def test_request_generation_creates_pending_and_enqueues():
 
     command = RequestGenerationCommand(
         image_id=image_id,
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai"
     )
 
@@ -66,7 +66,7 @@ async def test_request_generation_raises_if_image_not_found():
 
     command = RequestGenerationCommand(
         image_id=uuid4(),
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai"
     )
 
@@ -89,7 +89,7 @@ async def test_process_generation_full_flow():
     request = GenerationRequest(
         id=generation_id,
         source_image_id=source_image_id,
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai",
         status=GenerationStatus.pending
     )
@@ -174,7 +174,7 @@ async def test_process_generation_marks_failed_on_error():
     request = GenerationRequest(
         id=generation_id,
         source_image_id=uuid4(),
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai",
         status=GenerationStatus.pending
     )
@@ -205,7 +205,7 @@ async def test_process_generation_marks_failed_on_error():
 def test_invalid_state_transition_raises():
     request = GenerationRequest(
         source_image_id=uuid4(),
-        mode=GenerationMode.commercial_enhancement,
+        mode=GenerationMode.style_redesign,
         provider="openai",
         status=GenerationStatus.completed
     )

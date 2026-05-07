@@ -16,6 +16,8 @@ class ImageResponse(BaseModel):
     height: int | None
     url: str
     thumbnail_url: str | None
+    space_id: UUID | None
+    parent_image_id: UUID | None
     created_at: datetime
 
     @classmethod
@@ -33,5 +35,7 @@ class ImageResponse(BaseModel):
             height=image.height,
             url=url,
             thumbnail_url=thumbnail_url,
+            space_id=image.space_id,
+            parent_image_id=image.parent_image_id,
             created_at=image.created_at,
         )

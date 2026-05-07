@@ -45,7 +45,34 @@ class ImageRepository(ABC):
         pass
 
     @abstractmethod
+    async def list_by_space(self, space_id: UUID, offset: int = 0, limit: int = 20) -> list[ImageAsset]:
+        pass
+
+    @abstractmethod
+    async def count_by_space(self, space_id: UUID) -> int:
+        pass
+
+    @abstractmethod
     async def delete(self, image_id: UUID) -> None:
+        pass
+
+from app.domain.spaces.entities import Space
+
+class SpaceRepository(ABC):
+    @abstractmethod
+    async def save(self, space: Space) -> Space:
+        pass
+
+    @abstractmethod
+    async def get_by_id(self, space_id: UUID) -> Space | None:
+        pass
+
+    @abstractmethod
+    async def list_by_project(self, project_id: UUID) -> list[Space]:
+        pass
+
+    @abstractmethod
+    async def delete(self, space_id: UUID) -> None:
         pass
 
 from app.domain.generations.entities import GenerationRequest, ImageVariant

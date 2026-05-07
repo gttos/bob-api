@@ -42,6 +42,24 @@ def get_delete_project_uc(session: AsyncSession = Depends(get_session)) -> Delet
     repo = SQLAlchemyProjectRepository(session)
     return DeleteProjectUseCase(project_repo=repo)
 
+from app.infrastructure.persistence.spaces.sqlalchemy_repository import SQLAlchemySpaceRepository
+from app.application.spaces.create_space import CreateSpaceUseCase
+from app.application.spaces.list_spaces import ListSpacesUseCase
+from app.application.spaces.delete_space import DeleteSpaceUseCase
+
+def get_create_space_uc(session: AsyncSession = Depends(get_session)) -> CreateSpaceUseCase:
+    space_repo = SQLAlchemySpaceRepository(session)
+    project_repo = SQLAlchemyProjectRepository(session)
+    return CreateSpaceUseCase(space_repo=space_repo, project_repo=project_repo)
+
+def get_list_spaces_uc(session: AsyncSession = Depends(get_session)) -> ListSpacesUseCase:
+    space_repo = SQLAlchemySpaceRepository(session)
+    return ListSpacesUseCase(space_repo=space_repo)
+
+def get_delete_space_uc(session: AsyncSession = Depends(get_session)) -> DeleteSpaceUseCase:
+    space_repo = SQLAlchemySpaceRepository(session)
+    return DeleteSpaceUseCase(space_repo=space_repo)
+
 def get_storage() -> StoragePort:
     return LocalStorageAdapter(
         base_path=settings.STORAGE_LOCAL_PATH,
@@ -65,11 +83,13 @@ def get_upload_image_uc(
 ) -> UploadImageUseCase:
     image_repo = SQLAlchemyImageRepository(session)
     project_repo = SQLAlchemyProjectRepository(session)
+    space_repo = SQLAlchemySpaceRepository(session)
     allowed_mime_types = [mime.strip() for mime in settings.ALLOWED_MIME_TYPES.split(",")]
 
     return UploadImageUseCase(
         image_repo=image_repo,
         project_repo=project_repo,
+        space_repo=space_repo,
         storage=storage,
         thumbnail_service=thumbnail_service,
         allowed_mime_types=allowed_mime_types,
