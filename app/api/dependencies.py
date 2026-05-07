@@ -51,10 +51,17 @@ def get_storage() -> StoragePort:
 def get_thumbnail_service() -> ThumbnailService:
     return ThumbnailService()
 
+from app.infrastructure.tasks.celery_queue_adapter import CeleryTaskQueueAdapter
+from app.infrastructure.tasks.celery_app import celery_app
+
+def get_task_queue() -> CeleryTaskQueueAdapter:
+    return CeleryTaskQueueAdapter(celery_app)
+
 def get_upload_image_uc(
     session: AsyncSession = Depends(get_session),
     storage: StoragePort = Depends(get_storage),
-    thumbnail_service: ThumbnailService = Depends(get_thumbnail_service)
+    thumbnail_service: ThumbnailService = Depends(get_thumbnail_service),
+    task_queue: CeleryTaskQueueAdapter = Depends(get_task_queue)
 ) -> UploadImageUseCase:
     image_repo = SQLAlchemyImageRepository(session)
     project_repo = SQLAlchemyProjectRepository(session)
@@ -66,7 +73,8 @@ def get_upload_image_uc(
         storage=storage,
         thumbnail_service=thumbnail_service,
         allowed_mime_types=allowed_mime_types,
-        max_upload_size_mb=settings.MAX_UPLOAD_SIZE_MB
+        max_upload_size_mb=settings.MAX_UPLOAD_SIZE_MB,
+        task_queue=task_queue,
     )
 
 def get_get_image_uc(
@@ -87,15 +95,10 @@ def get_delete_image_uc(
     image_repo = SQLAlchemyImageRepository(session)
     return ImageDeleteImageUseCase(image_repo=image_repo, storage=storage)
 
-from app.infrastructure.tasks.celery_queue_adapter import CeleryTaskQueueAdapter
-from app.infrastructure.tasks.celery_app import celery_app
 from app.infrastructure.persistence.generations.sqlalchemy_repository import SQLAlchemyGenerationRepository
 from app.application.generations.request_generation import RequestGenerationUseCase
 from app.application.generations.get_generation import GetGenerationUseCase
 from app.application.generations.list_generations import ListGenerationsUseCase
-
-def get_task_queue() -> CeleryTaskQueueAdapter:
-    return CeleryTaskQueueAdapter(celery_app)
 
 def get_request_generation_uc(
     session: AsyncSession = Depends(get_session),

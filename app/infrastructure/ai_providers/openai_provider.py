@@ -1,6 +1,13 @@
+import base64
+import json
+import structlog
+from openai import AsyncOpenAI
+
 from app.application.ports.ai_provider_port import AIProviderPort, GenerationResult, SceneInventoryData
 from app.domain.generations.services import PromptResult
 from app.domain.shared.exceptions import DomainError
+
+logger = structlog.get_logger(__name__)
 
 class ProviderNotAvailableError(DomainError):
     pass
@@ -8,43 +15,172 @@ class ProviderNotAvailableError(DomainError):
 class GenerationFailedError(DomainError):
     pass
 
+SCENE_ANALYSIS_PROMPT = """Analyze this interior image and return a structured JSON object with the following schema:
+{
+  "scene_type": "living_room|bedroom|kitchen|dining_room|office|bathroom|other",
+  "camera": {
+    "angle": "description of camera angle",
+    "perspective": "wide|medium|close",
+    "focal_point": "description"
+  },
+  "architecture": {
+    "must_preserve": true,
+    "elements": [{"type": "wall|floor|ceiling|window|door", "material": "...", "color": "..."}]
+  },
+  "furniture": [{"type": "...", "style": "...", "color": "...", "position": "..."}],
+  "decoration": [{"type": "...", "position": "..."}],
+  "editable_candidates": [{"element": "...", "edit_types": ["replace", "recolor", "remove"]}],
+  "preservation_rules": ["rule 1", "rule 2"]
+}
+Return ONLY the JSON object, no markdown, no explanation."""
+
+
 class OpenAIProvider(AIProviderPort):
     def __init__(self, api_key: str):
         self.api_key = api_key
-        # In a real implementation, we would initialize the OpenAI client here
-        # import openai
-        # self.client = openai.AsyncOpenAI(api_key=api_key)
+        self.client = AsyncOpenAI(api_key=api_key)
 
     @property
     def provider_name(self) -> str:
         return "openai"
 
     async def generate_variant(self, image: bytes, prompt_result: PromptResult) -> GenerationResult:
+        model = "gpt-image-1"
+
+        logger.info(
+            "openai.generate_variant.start",
+            model=model,
+            prompt_length=len(prompt_result.prompt),
+        )
+
         try:
-            # Mock implementation
-            # In real code: call self.client.images.generate(...)
+            import io
+            import tempfile
+            import os
+            from PIL import Image as PILImage
 
-            # Simulated generated image (using a 1x1 black JPEG for the mock)
-            dummy_image_data = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xdb\x00C\x01\t\t\t\x0c\x0b\x0c\x18\r\r\x182!\x1c!22222222222222222222222222222222222222222222222222\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x03\x01"\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1\xf0$3br\x82\t\n\x16\x17\x18\x19\x1a%&\'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xc4\x00\x1f\x01\x00\x03\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x11\x00\x02\x01\x02\x04\x04\x03\x04\x07\x05\x04\x04\x00\x01\x02\x01\x00\x01\x02\x03\x11\x04\x05!1\x06\x12AQ\x07aq\x13"2\x81\x08\x14B\x91\xa1\xb1\xc1\t#3R\xf0\x15br\xd1\n\x16$4\xe1%\xf1\x17\x18\x19\x1a&\'()*56789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\xfd\xfc\xa2\x8a(\xa0\x0f\xff\xd9'
+            # Open image and determine aspect ratio to preserve orientation
+            img = PILImage.open(io.BytesIO(image)).convert("RGBA")
+            w, h = img.size
+            ratio = w / h
 
-            model = prompt_result.provider_params.get("model", "gpt-image-1")
+            # Choose output size based on aspect ratio
+            if ratio > 1.3:
+                size = "1536x1024"  # Landscape
+                target_w, target_h = 1536, 1024
+            elif ratio < 0.77:
+                size = "1024x1536"  # Portrait
+                target_w, target_h = 1024, 1536
+            else:
+                size = "1024x1024"  # Square-ish
+                target_w, target_h = 1024, 1024
+
+            # Resize preserving aspect ratio (thumbnail keeps ratio)
+            img.thumbnail((target_w, target_h), PILImage.Resampling.LANCZOS)
+
+            # Write to temp file
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp_path = tmp.name
+                img.save(tmp_path, format="PNG", optimize=True)
+
+            # If > 4MB, reduce further
+            if os.path.getsize(tmp_path) > 4 * 1024 * 1024:
+                os.unlink(tmp_path)
+                img.thumbnail((target_w // 2, target_h // 2), PILImage.Resampling.LANCZOS)
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    tmp_path = tmp.name
+                    img.save(tmp_path, format="PNG", optimize=True)
+
+            try:
+                with open(tmp_path, "rb") as f:
+                    response = await self.client.images.edit(
+                        model=model,
+                        image=f,
+                        prompt=prompt_result.prompt,
+                        size=size,
+                        n=1,
+                    )
+            finally:
+                os.unlink(tmp_path)
+
+            # gpt-image-1 returns b64_json by default
+            if response.data[0].b64_json:
+                image_data = base64.b64decode(response.data[0].b64_json)
+            elif response.data[0].url:
+                import httpx
+                async with httpx.AsyncClient() as http_client:
+                    img_response = await http_client.get(response.data[0].url)
+                    image_data = img_response.content
+            else:
+                raise GenerationFailedError("OpenAI returned no image data")
+
+            logger.info("openai.generate_variant.completed", model=model, size=size)
 
             return GenerationResult(
-                image_data=dummy_image_data,
+                image_data=image_data,
                 provider_name=self.provider_name,
                 model_name=model,
-                metadata={"prompt": prompt_result.prompt}
+                metadata={"prompt": prompt_result.prompt, "size": size},
             )
+
+        except GenerationFailedError:
+            raise
         except Exception as e:
+            logger.error("openai.generate_variant.failed", error=str(e), exc_info=True)
             raise GenerationFailedError(f"OpenAI generation failed: {str(e)}")
 
     async def analyze_scene(self, image: bytes) -> SceneInventoryData:
+        logger.info("openai.analyze_scene.start")
+
         try:
-            # Mock implementation
-            return SceneInventoryData(
-                inventory={"scene_type": "living_room", "preservation_rules": []},
-                provider_name=self.provider_name,
-                model_name="gpt-4o"
+            image_b64 = base64.b64encode(image).decode("utf-8")
+
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_b64}",
+                                    "detail": "high",
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": SCENE_ANALYSIS_PROMPT,
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=1500,
             )
+
+            raw = response.choices[0].message.content.strip()
+
+            # Strip markdown code blocks if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+
+            inventory = json.loads(raw)
+
+            logger.info("openai.analyze_scene.completed")
+
+            return SceneInventoryData(
+                inventory=inventory,
+                provider_name=self.provider_name,
+                model_name="gpt-4o",
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error("openai.analyze_scene.json_parse_failed", error=str(e))
+            raise GenerationFailedError(f"Failed to parse scene analysis response: {str(e)}")
         except Exception as e:
-            raise GenerationFailedError(f"OpenAI analysis failed: {str(e)}")
+            logger.error("openai.analyze_scene.failed", error=str(e), exc_info=True)
+            raise GenerationFailedError(f"OpenAI scene analysis failed: {str(e)}")
+

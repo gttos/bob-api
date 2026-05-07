@@ -4,9 +4,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: kiro_user
-      POSTGRES_PASSWORD: kiro_password
-      POSTGRES_DB: kiro_db
+      POSTGRES_USER: interiorai
+      POSTGRES_PASSWORD: interiorai
+      POSTGRES_DB: interiorai_db
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: always
@@ -22,9 +22,9 @@ services:
       context: .
       target: production
     ports:
-      - "8000:8000"
+      - "8010:8010"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://kiro_user:kiro_password@db:5432/kiro_db
+      - DATABASE_URL=postgresql+asyncpg://interiorai:interiorai@db:5432/interiorai_db
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -41,7 +41,7 @@ services:
       - redis
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8010"
     restart: always
 
   celery-worker:
@@ -49,7 +49,7 @@ services:
       context: .
       target: production
     environment:
-      - DATABASE_URL=postgresql+asyncpg://kiro_user:kiro_password@db:5432/kiro_db
+      - DATABASE_URL=postgresql+asyncpg://interiorai:interiorai@db:5432/interiorai_db
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0

@@ -15,6 +15,7 @@ class ProjectModel(Base):
     owner_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     images = relationship("ImageAssetModel", back_populates="project", cascade="all, delete-orphan")
 
@@ -28,6 +29,8 @@ class ImageAssetModel(Base):
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
     storage_path = Column(String(500), nullable=False)
+    thumbnail_path = Column(String(500), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     thumbnail_path = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

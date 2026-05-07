@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, Request, APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config.settings import settings
@@ -55,6 +55,11 @@ api_router.include_router(stats_router)
 
 # Register API Router
 app.include_router(api_router)
+
+# Serve frontend at root
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("app/static/index.html")
 
 # Exception Handlers
 @app.exception_handler(ResourceNotFoundError)

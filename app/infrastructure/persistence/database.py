@@ -21,9 +21,14 @@ class Base(DeclarativeBase):
     pass
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get a database session."""
+    """Dependency to get a database session.
+    Commits on success, rolls back on exception."""
     async with AsyncSessionLocal() as session:
         try:
             yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()

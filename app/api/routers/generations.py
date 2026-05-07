@@ -45,7 +45,8 @@ async def request_generation(
         mode=mode,
         provider=request_data.provider,
         preset=request_data.preset,
-        instructions=request_data.instructions
+        instructions=request_data.instructions,
+        elements_to_remove=request_data.elements_to_remove,
     )
 
     result = await use_case.execute(command, correlation_id=correlation_id)

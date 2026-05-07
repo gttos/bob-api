@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       target: production
     ports:
-      - "8000:8000"
+      - "8010:8010"
     volumes:
       - media_data:/app/media
     depends_on:
@@ -13,10 +13,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://interiorai:interiorai@db:5432/interiorai_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - STORAGE_BACKEND=local
+      - STORAGE_LOCAL_PATH=/app/media
+      - MEDIA_URL_PREFIX=/media
+      - MAX_UPLOAD_SIZE_MB=20
+      - ALLOWED_MIME_TYPES=image/jpeg,image/png,image/webp
+      - RATE_LIMIT_ENABLED=false
+      - RATE_LIMIT_GENERATIONS_PER_DAY=50
+      - LOG_LEVEL=INFO
+      - APP_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-changeme}
+      - FLUX_ENABLED=false
+      - FLUX_API_URL=
+      - FLUX_API_KEY=
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8010"
 
   celery-worker:
     build:
@@ -30,7 +47,20 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://interiorai:interiorai@db:5432/interiorai_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - STORAGE_BACKEND=local
+      - STORAGE_LOCAL_PATH=/app/media
+      - MEDIA_URL_PREFIX=/media
+      - LOG_LEVEL=INFO
+      - APP_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-changeme}
+      - FLUX_ENABLED=false
+      - FLUX_API_URL=
+      - FLUX_API_KEY=
     command: celery -A app.infrastructure.tasks.celery_app worker --loglevel=info --concurrency=2
 
   db:
@@ -38,11 +68,11 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-kiro_db}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: interiorai_db
+      POSTGRES_USER: interiorai
+      POSTGRES_PASSWORD: interiorai
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-kiro_db}"]
+      test: ["CMD-SHELL", "pg_isready -U interiorai -d interiorai_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,6 +84,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+    command: celery -A app.infrastructure.tasks.celery_app flower --port=5555
 
 volumes:
   media_data:

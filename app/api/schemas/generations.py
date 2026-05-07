@@ -11,6 +11,7 @@ class GenerationRequestCreate(BaseModel):
     preset: Optional[str] = None
     instructions: Optional[str] = None
     provider: str = "openai"
+    elements_to_remove: Optional[list[str]] = None
 
 class GenerationRequestResponse(BaseModel):
     id: UUID

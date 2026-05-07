@@ -34,6 +34,7 @@ app/
 
 - Docker & Docker Compose
 - An OpenAI API key (for AI generation features)
+- `make` (comes pre-installed on macOS and Linux)
 
 ### 1. Clone and configure
 
@@ -41,29 +42,38 @@ app/
 git clone <repo-url>
 cd bob-api
 
-# Create .env from example
+# Create .env from example (only needed for local tooling outside Docker)
 cp .env.example .env
+```
 
-# Edit .env and set your OpenAI API key
-# OPENAI_API_KEY=sk-proj-your-key-here
+The `OPENAI_API_KEY` can be passed as an environment variable when starting:
+
+```bash
+OPENAI_API_KEY=sk-proj-your-key docker compose up --build
+```
+
+Or set it in your shell before running any `make` command:
+
+```bash
+export OPENAI_API_KEY=sk-proj-your-key
 ```
 
 ### 2. Start the stack
 
 ```bash
-docker compose up --build
+make build
 ```
 
 This will:
 - Build the FastAPI app image
 - Start PostgreSQL, Redis, the API server, and a Celery worker
 - Run database migrations automatically
-- Serve the API at `http://localhost:8000`
+- Serve the API at `http://localhost:8010`
 
 ### 3. Verify it's running
 
 ```bash
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8010/api/v1/health
 ```
 
 Expected response:
@@ -73,39 +83,58 @@ Expected response:
 
 ### 4. Open API docs
 
-Visit: http://localhost:8000/docs
-
-Full interactive OpenAPI documentation with all endpoints.
+Visit: http://localhost:8010/docs
 
 ---
 
-## Testing
+## Make Commands
 
-### Run all tests (no Docker needed)
+All operations go through Docker. Run `make help` to see all available commands.
 
-```bash
-# Install dependencies
-pip install -r requirements.txt -r requirements-dev.txt
-
-# Run tests
-pytest tests/ -v
-```
-
-Tests use SQLite in-memory — no PostgreSQL or Redis required.
-
-### Run tests inside Docker
+### Stack
 
 ```bash
-docker compose exec api pytest tests/ -v
+make build        # Build and start all services
+make up           # Start services (no rebuild)
+make down         # Stop and remove containers
+make down-v       # Stop and remove containers + volumes (clean slate)
+make restart      # Restart all services
+make ps           # Show running containers
 ```
 
-### Test categories
+### Logs
 
-| Directory | What it tests |
-|---|---|
-| `tests/unit/` | Use cases with mocked dependencies |
-| `tests/properties/` | Property-based tests with Hypothesis (100 iterations each) |
-| `tests/integration/` | Full API endpoints with TestClient + SQLite |
+```bash
+make logs         # Tail all logs
+make logs-api     # Tail API logs only
+make logs-worker  # Tail Celery worker logs only
+```
+
+### Database
+
+```bash
+make migrate                    # Run pending migrations
+make migration m="add users"    # Create a new migration
+make migrate-down               # Rollback last migration
+make db-refresh                 # Drop all tables and re-run migrations (fresh start)
+```
+
+### Testing
+
+```bash
+make test         # Run all tests
+make test-unit    # Unit tests only (use cases with mocks)
+make test-int     # Integration tests only (API endpoints)
+make test-props   # Property-based tests only (Hypothesis)
+make test-e2e     # End-to-end flow tests
+make test-cov     # All tests with coverage report
+```
+
+### Shell
+
+```bash
+make shell        # Open bash inside the API container
+```
 
 ---
 
@@ -115,7 +144,7 @@ docker compose exec api pytest tests/ -v
 
 1. Open Postman
 2. Import → File → select `postman/Interior_AI_Backend.postman_collection.json`
-3. The collection uses a `base_url` variable set to `http://localhost:8000/api/v1`
+3. The collection uses a `base_url` variable set to `http://localhost:8010/api/v1`
 
 ### Testing flow (step by step)
 
@@ -219,24 +248,24 @@ All configuration via environment variables (`.env` file):
 
 ---
 
-## Development
+### Development
 
 ### Hot reload (local development)
 
 ```bash
-docker compose up
+make build
 ```
 
 The `docker-compose.override.yml` automatically enables:
 - Hot reload (`--reload` flag)
 - Source code mounted as volume
-- DB and Redis ports exposed (5432, 6379)
+- DB exposed on port `5433`, Redis on `6380`
 
 ### Add a new migration
 
 ```bash
-docker compose exec api alembic revision --autogenerate -m "description"
-docker compose exec api alembic upgrade head
+make migration m="add owner table"
+make migrate
 ```
 
 ### Production deployment

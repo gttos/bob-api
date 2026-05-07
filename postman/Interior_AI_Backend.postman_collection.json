@@ -1,369 +1,274 @@
 {
   "info": {
     "name": "Interior AI Backend - MVP",
-    "description": "Complete API collection for the Interior AI Backend MVP. Covers all endpoints: Projects, Images, Generations, Scene Inventory, Evaluations, Comparison, and Stats.",
+    "description": "Complete API collection for the Interior AI Backend MVP.\n\nFLOWS:\n1. Empty room → Furnished with style\n2. Furnished room → Redesign style\n3. Generated image → Localized edit (change one element)\n4. Scene analysis → Get structured inventory\n5. Evaluate results manually",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000/api/v1" },
+    { "key": "base_url", "value": "http://localhost:8010/api/v1" },
     { "key": "project_id", "value": "" },
     { "key": "image_id", "value": "" },
+    { "key": "generated_image_id", "value": "" },
     { "key": "generation_id", "value": "" },
     { "key": "variant_id", "value": "" },
     { "key": "evaluation_id", "value": "" }
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "0. Health",
       "item": [
         {
           "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/health"
-          }
+          "request": { "method": "GET", "url": "{{base_url}}/health" }
         }
       ]
     },
     {
-      "name": "Projects",
+      "name": "1. Setup — Project + Upload Image",
       "item": [
         {
           "name": "Create Project",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('project_id', json.id);",
-                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); pm.collectionVariables.set('project_id', json.id);"] } }],
           "request": {
             "method": "POST",
             "url": "{{base_url}}/projects",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Apartamento Centro Madrid\",\n  \"description\": \"Piso de 90m2 para reformar y vender\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Apartamento Centro Madrid\",\n  \"description\": \"Piso de 90m2 — testing AI interior design\"\n}" }
           }
         },
         {
-          "name": "List Projects",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/projects?page=1&page_size=20",
-              "host": ["{{base_url}}"],
-              "path": ["projects"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "page_size", "value": "20" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Project",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/projects/{{project_id}}"
-          }
-        },
-        {
-          "name": "Update Project",
-          "request": {
-            "method": "PATCH",
-            "url": "{{base_url}}/projects/{{project_id}}",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Apartamento Centro Madrid - Reformado\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Delete Project",
-          "request": {
-            "method": "DELETE",
-            "url": "{{base_url}}/projects/{{project_id}}"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Images",
-      "item": [
-        {
-          "name": "Upload Image",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('image_id', json.id);",
-                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });",
-                  "pm.test('Has URL', function() { pm.expect(json.url).to.not.be.empty; });",
-                  "pm.test('No storage_path exposed', function() { pm.expect(json.storage_path).to.be.undefined; });"
-                ]
-              }
-            }
-          ],
+          "name": "Upload Interior Photo",
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); pm.collectionVariables.set('image_id', json.id);"] } }],
           "request": {
             "method": "POST",
             "url": "{{base_url}}/projects/{{project_id}}/images",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "description": "Select a JPEG, PNG, or WebP image file"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Images by Project",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/projects/{{project_id}}/images?page=1&page_size=20",
-              "host": ["{{base_url}}"],
-              "path": ["projects", "{{project_id}}", "images"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "page_size", "value": "20" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Image",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/images/{{image_id}}"
-          }
-        },
-        {
-          "name": "Download Image",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/images/{{image_id}}/download"
-          }
-        },
-        {
-          "name": "Delete Image",
-          "request": {
-            "method": "DELETE",
-            "url": "{{base_url}}/images/{{image_id}}"
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "description": "Select a JPEG/PNG/WebP photo of an interior (empty room or furnished)" }] }
           }
         }
       ]
     },
     {
-      "name": "Generations",
+      "name": "2. Generate — Style Redesign",
+      "description": "Take an existing photo and redesign it with a different style. Works with empty rooms (adds furniture) or furnished rooms (replaces furniture).",
       "item": [
         {
-          "name": "Request Generation - Commercial Enhancement",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('generation_id', json.id);",
-                  "pm.test('Status 202', function() { pm.response.to.have.status(202); });",
-                  "pm.test('Status is pending', function() { pm.expect(json.status).to.eql('pending'); });"
-                ]
-              }
-            }
-          ],
+          "name": "Generate: Modern Mediterranean",
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); pm.collectionVariables.set('generation_id', json.id);"] } }],
           "request": {
             "method": "POST",
             "url": "{{base_url}}/images/{{image_id}}/generations",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mode\": \"commercial_enhancement\",\n  \"provider\": \"openai\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"style_redesign\",\n  \"preset\": \"modern_mediterranean\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Furnish this space with warm Mediterranean style. Use terracotta tones, natural wood, and light fabrics. Keep the exact architecture unchanged.\"\n}" }
           }
         },
         {
-          "name": "Request Generation - Style Redesign",
+          "name": "Generate: Premium Contemporary",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/images/{{image_id}}/generations",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mode\": \"style_redesign\",\n  \"preset\": \"modern_mediterranean\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Make it feel warm and inviting\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"style_redesign\",\n  \"preset\": \"premium_contemporary\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Redesign with sleek contemporary furniture, neutral palette, elegant lighting. Preserve all walls, floor, ceiling, and windows exactly.\"\n}" }
           }
         },
         {
-          "name": "Request Generation - Localized Edit",
+          "name": "Generate: Urban Contemporary",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/images/{{image_id}}/generations",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mode\": \"localized_edit\",\n  \"preset\": \"localized_wall_art\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace wall art with colorful abstract paintings\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"style_redesign\",\n  \"preset\": \"urban_contemporary\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Urban loft style with industrial elements, exposed materials, dark metal accents. Keep architecture intact.\"\n}" }
           }
         },
         {
-          "name": "Get Generation Status",
+          "name": "Generate: Commercial Enhancement",
           "request": {
-            "method": "GET",
-            "url": "{{base_url}}/generations/{{generation_id}}"
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"commercial_enhancement\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Make this space look professional and attractive for real estate listings. Improve lighting, staging, and overall appeal.\"\n}" }
           }
         },
         {
-          "name": "List Generations by Image",
+          "name": "Check Generation Status",
+          "request": { "method": "GET", "url": "{{base_url}}/generations/{{generation_id}}" }
+        },
+        {
+          "name": "List All Generations for Image",
+          "request": { "method": "GET", "url": "{{base_url}}/images/{{image_id}}/generations?page=1&page_size=20" }
+        }
+      ]
+    },
+    {
+      "name": "3. Generate — Functional Variant",
+      "description": "Transform the room function (living room → dining room, bedroom → office, etc.)",
+      "item": [
+        {
+          "name": "Generate: Living Room with TV Wall",
           "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/images/{{image_id}}/generations?page=1&page_size=20",
-              "host": ["{{base_url}}"],
-              "path": ["images", "{{image_id}}", "generations"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "page_size", "value": "20" }
-              ]
-            }
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"functional_variant\",\n  \"preset\": \"living_tv_wall\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Convert this space into a modern living room with a sleek TV wall, media console, and comfortable seating. Keep architecture unchanged.\"\n}" }
+          }
+        },
+        {
+          "name": "Generate: Dining Room",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"functional_variant\",\n  \"preset\": \"dining_room\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Transform into an elegant dining room with a central table for 6, stylish chairs, and a chandelier. Preserve all architecture.\"\n}" }
+          }
+        },
+        {
+          "name": "Generate: Home Office / Lounge",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"functional_variant\",\n  \"preset\": \"home_office_lounge\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Create a comfortable home office with a desk, ergonomic chair, bookshelves, and a reading nook. Keep walls and floor unchanged.\"\n}" }
           }
         }
       ]
     },
     {
-      "name": "Scene Inventory",
+      "name": "4. Generate — Localized Edit",
+      "description": "Change ONE specific element in an image. Use this on a generated variant to iterate.\n\nTIP: First run Scene Analysis to get the inventory, then use localized_edit with specific instructions.",
+      "item": [
+        {
+          "name": "Localized Edit: Change Wall Art",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"localized_edit\",\n  \"preset\": \"localized_wall_art\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace the wall art with large colorful abstract paintings. Keep everything else exactly the same.\"\n}" }
+          }
+        },
+        {
+          "name": "Localized Edit: Change Sofa",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"localized_edit\",\n  \"preset\": \"localized_sofa\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace the sofa with a large L-shaped velvet sofa in deep green. Keep everything else unchanged.\"\n}" }
+          }
+        },
+        {
+          "name": "Localized Edit: Custom (free text)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"localized_edit\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace the pillows on the bed with cute teddy bears. Keep absolutely everything else the same — same bed, same walls, same floor, same lighting.\"\n}" }
+          }
+        },
+        {
+          "name": "Localized Edit: Change Lighting",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/images/{{image_id}}/generations",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"localized_edit\",\n  \"provider\": \"openai\",\n  \"instructions\": \"Replace the ceiling fan with an elegant large French crystal chandelier. Keep everything else exactly as it is.\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Scene Analysis",
+      "description": "Analyze an image to get a structured JSON inventory of the scene (furniture, architecture, editable elements).",
       "item": [
         {
           "name": "Request Scene Analysis",
-          "request": {
-            "method": "POST",
-            "url": "{{base_url}}/images/{{image_id}}/scene-inventory"
-          }
+          "request": { "method": "POST", "url": "{{base_url}}/images/{{image_id}}/scene-inventory" }
         },
         {
           "name": "Get Scene Inventory",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/images/{{image_id}}/scene-inventory"
-          }
+          "request": { "method": "GET", "url": "{{base_url}}/images/{{image_id}}/scene-inventory" }
         }
       ]
     },
     {
-      "name": "Comparison",
+      "name": "6. Compare Results",
+      "description": "Compare original image with all generated variants.",
       "item": [
         {
-          "name": "Get Image Comparison",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/images/{{image_id}}/comparison",
-            "description": "Returns original image + all generated variants with URLs and generation metadata"
-          }
+          "name": "Get Comparison (Original vs Variants)",
+          "request": { "method": "GET", "url": "{{base_url}}/images/{{image_id}}/comparison" }
         }
       ]
     },
     {
-      "name": "Evaluations",
+      "name": "7. Evaluate Results",
+      "description": "Manually score each generated variant on 10 dimensions (1-5 scale).",
       "item": [
         {
           "name": "Create Evaluation",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('evaluation_id', json.id);",
-                  "pm.test('Status 201', function() { pm.response.to.have.status(201); });"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); pm.collectionVariables.set('evaluation_id', json.id);"] } }],
           "request": {
             "method": "POST",
             "url": "{{base_url}}/image-variants/{{variant_id}}/evaluation",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"geometry\": 5,\n  \"architecture\": 4,\n  \"perspective\": 4,\n  \"photorealism\": 3,\n  \"commercial_quality\": 4,\n  \"instruction_obedience\": 5,\n  \"style_differentiation\": 4,\n  \"localized_edit_accuracy\": 3,\n  \"human_retouch_needed\": 2,\n  \"construction_company_fit\": 4,\n  \"verdict\": \"usable_with_retouch\",\n  \"notes\": \"Good overall but needs minor color correction\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"geometry\": 5,\n  \"architecture\": 4,\n  \"perspective\": 4,\n  \"photorealism\": 3,\n  \"commercial_quality\": 4,\n  \"instruction_obedience\": 5,\n  \"style_differentiation\": 4,\n  \"localized_edit_accuracy\": 3,\n  \"human_retouch_needed\": 2,\n  \"construction_company_fit\": 4,\n  \"verdict\": \"usable_with_retouch\",\n  \"notes\": \"Good overall, needs minor color correction on walls\"\n}" }
           }
         },
         {
           "name": "Get Evaluation",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/image-variants/{{variant_id}}/evaluation"
-          }
+          "request": { "method": "GET", "url": "{{base_url}}/image-variants/{{variant_id}}/evaluation" }
         },
         {
-          "name": "Update Evaluation (Partial)",
+          "name": "Update Evaluation",
           "request": {
             "method": "PATCH",
             "url": "{{base_url}}/evaluations/{{evaluation_id}}",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"photorealism\": 5,\n  \"verdict\": \"approved\",\n  \"notes\": \"After review, quality is excellent\"\n}"
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"photorealism\": 5,\n  \"verdict\": \"approved\",\n  \"notes\": \"After second review — quality is excellent\"\n}" }
           }
         }
       ]
     },
     {
-      "name": "Stats",
+      "name": "8. Stats",
       "item": [
         {
-          "name": "Get Stats by Provider",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/stats/generations?group_by=provider",
-              "host": ["{{base_url}}"],
-              "path": ["stats", "generations"],
-              "query": [{ "key": "group_by", "value": "provider" }]
-            }
-          }
+          "name": "Stats by Provider",
+          "request": { "method": "GET", "url": "{{base_url}}/stats/generations?group_by=provider" }
         },
         {
-          "name": "Get Stats by Status",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/stats/generations?group_by=status",
-              "host": ["{{base_url}}"],
-              "path": ["stats", "generations"],
-              "query": [{ "key": "group_by", "value": "status" }]
-            }
-          }
+          "name": "Stats by Status",
+          "request": { "method": "GET", "url": "{{base_url}}/stats/generations?group_by=status" }
+        }
+      ]
+    },
+    {
+      "name": "9. Management",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": { "method": "GET", "url": "{{base_url}}/projects?page=1&page_size=20" }
         },
         {
-          "name": "Get Stats by Project",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/stats/generations?group_by=project&project_id={{project_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["stats", "generations"],
-              "query": [
-                { "key": "group_by", "value": "project" },
-                { "key": "project_id", "value": "{{project_id}}" }
-              ]
-            }
-          }
+          "name": "Get Project",
+          "request": { "method": "GET", "url": "{{base_url}}/projects/{{project_id}}" }
+        },
+        {
+          "name": "List Images in Project",
+          "request": { "method": "GET", "url": "{{base_url}}/projects/{{project_id}}/images?page=1&page_size=20" }
+        },
+        {
+          "name": "Get Image Details",
+          "request": { "method": "GET", "url": "{{base_url}}/images/{{image_id}}" }
+        },
+        {
+          "name": "Download Image",
+          "request": { "method": "GET", "url": "{{base_url}}/images/{{image_id}}/download" }
+        },
+        {
+          "name": "Delete Image",
+          "request": { "method": "DELETE", "url": "{{base_url}}/images/{{image_id}}" }
+        },
+        {
+          "name": "Delete Project",
+          "request": { "method": "DELETE", "url": "{{base_url}}/projects/{{project_id}}" }
         }
       ]
     }

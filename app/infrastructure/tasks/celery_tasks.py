@@ -6,12 +6,15 @@ from app.infrastructure.tasks.celery_app import celery_app
 from app.infrastructure.persistence.database import AsyncSessionLocal
 from app.infrastructure.persistence.generations.sqlalchemy_repository import SQLAlchemyGenerationRepository
 from app.infrastructure.persistence.images.sqlalchemy_repository import SQLAlchemyImageRepository
+from app.infrastructure.persistence.generations.scene_inventory_repository import SQLAlchemySceneInventoryRepository
 from app.infrastructure.storage.local_storage_adapter import LocalStorageAdapter
 from app.infrastructure.thumbnail.pillow_thumbnail import ThumbnailService
 from app.infrastructure.ai_providers.registry import AIProviderRegistry
 from app.infrastructure.ai_providers.openai_provider import OpenAIProvider
+from app.infrastructure.tasks.celery_queue_adapter import CeleryTaskQueueAdapter
 from app.domain.generations.services import PromptBuilder
 from app.application.generations.process_generation import ProcessGenerationUseCase
+from app.infrastructure.ai_providers.prompt_optimizer import PromptOptimizer
 from app.config.settings import settings
 
 logger = structlog.get_logger(__name__)
@@ -30,6 +33,7 @@ async def _process_generation_async(generation_request_id_str: str, correlation_
     async with AsyncSessionLocal() as session:
         generation_repo = SQLAlchemyGenerationRepository(session)
         image_repo = SQLAlchemyImageRepository(session)
+        scene_inventory_repo = SQLAlchemySceneInventoryRepository(session)
         storage = LocalStorageAdapter(
             base_path=settings.STORAGE_LOCAL_PATH,
             media_url_prefix=settings.MEDIA_URL_PREFIX
@@ -37,17 +41,22 @@ async def _process_generation_async(generation_request_id_str: str, correlation_
         ai_provider_registry = get_ai_provider_registry()
         prompt_builder = PromptBuilder()
         thumbnail_service = ThumbnailService()
+        task_queue = CeleryTaskQueueAdapter(celery_app)
 
         use_case = ProcessGenerationUseCase(
             generation_repo=generation_repo,
             image_repo=image_repo,
+            scene_inventory_repo=scene_inventory_repo,
             storage=storage,
             ai_provider_registry=ai_provider_registry,
             prompt_builder=prompt_builder,
-            thumbnail_service=thumbnail_service
+            thumbnail_service=thumbnail_service,
+            task_queue=task_queue,
+            prompt_optimizer=PromptOptimizer(),
         )
 
         await use_case.execute(generation_request_id)
+        await session.commit()
 
     logger.info("Finished process_generation task", generation_request_id=generation_request_id_str)
 
@@ -99,6 +108,7 @@ async def _analyze_scene_async(image_id_str: str, correlation_id: str = ""):
         )
 
         await use_case.execute(image_id)
+        await session.commit()
 
     logger.info("Finished analyze_scene task", image_id=image_id_str)
 

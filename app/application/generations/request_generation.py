@@ -14,6 +14,7 @@ class RequestGenerationCommand:
     provider: str
     preset: Optional[str] = None
     instructions: Optional[str] = None
+    elements_to_remove: Optional[list[str]] = None
 
 class RequestGenerationUseCase:
     def __init__(
@@ -39,6 +40,16 @@ class RequestGenerationUseCase:
             instructions=command.instructions,
             status=GenerationStatus.pending
         )
+
+        # Store elements_to_remove in the request for the worker to use
+        if command.elements_to_remove:
+            import json
+            # Append to instructions so the worker can read it
+            remove_text = ", ".join(command.elements_to_remove)
+            if request.instructions:
+                request.instructions += f"\n[REMOVE ELEMENTS: {remove_text}]"
+            else:
+                request.instructions = f"[REMOVE ELEMENTS: {remove_text}]"
 
         saved_request = await self.generation_repo.save(request)
 

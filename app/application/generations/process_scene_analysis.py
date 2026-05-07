@@ -27,8 +27,13 @@ class ProcessSceneAnalysisUseCase:
     async def execute(self, image_id: UUID) -> None:
         inventory = await self.scene_repo.get_by_image_id(image_id)
         if not inventory:
-            # If not found, it might have been deleted, just ignore or raise.
-            raise ResourceNotFoundError(f"Scene inventory for image {image_id} not found")
+            # Auto-create the SceneInventory record if it doesn't exist
+            # (happens when triggered automatically from upload or generation)
+            image = await self.image_repo.get_by_id(image_id)
+            if not image:
+                raise ResourceNotFoundError(f"Image {image_id} not found")
+            inventory = SceneInventory(image_id=image_id, status="pending")
+            inventory = await self.scene_repo.save(inventory)
 
         try:
             image = await self.image_repo.get_by_id(image_id)
@@ -51,7 +56,6 @@ class ProcessSceneAnalysisUseCase:
             await self.scene_repo.save(inventory)
 
         except Exception as e:
-            # Re-fetch in case of concurrent updates
             inventory = await self.scene_repo.get_by_image_id(image_id)
             if inventory:
                 inventory.status = "failed"

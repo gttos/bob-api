@@ -7,7 +7,6 @@ from typing import Optional
 from app.domain.shared.exceptions import InvalidStateTransitionError
 
 class GenerationMode(str, Enum):
-    commercial_enhancement = "commercial_enhancement"
     style_redesign = "style_redesign"
     functional_variant = "functional_variant"
     localized_edit = "localized_edit"

@@ -1,11 +1,12 @@
 from uuid import UUID
-from typing import Protocol
+from typing import Protocol, Optional
 
 from app.domain.generations.entities import GenerationStatus, ImageVariant
 from app.domain.images.entities import ImageAsset
-from app.domain.generations.services import PromptBuilder, PromptConfig
-from app.application.ports.repository_ports import GenerationRepository, ImageRepository
+from app.domain.generations.services import PromptBuilder, PromptConfig, PromptResult
+from app.application.ports.repository_ports import GenerationRepository, ImageRepository, SceneInventoryRepository
 from app.application.ports.storage_port import StoragePort
+from app.application.ports.task_queue_port import TaskQueuePort
 from app.domain.shared.exceptions import ResourceNotFoundError
 
 class AIProviderRegistryProtocol(Protocol):
@@ -16,22 +17,34 @@ class ThumbnailServiceProtocol(Protocol):
     def generate(self, image_data: bytes, max_size: tuple[int, int] = (400, 400)) -> bytes:
         ...
 
+class PromptOptimizerProtocol(Protocol):
+    async def optimize(self, mode: str, preset: str, user_instructions: str = "",
+                       scene_inventory: Optional[dict] = None,
+                       elements_to_remove: Optional[list[str]] = None) -> str:
+        ...
+
 class ProcessGenerationUseCase:
     def __init__(
         self,
         generation_repo: GenerationRepository,
         image_repo: ImageRepository,
+        scene_inventory_repo: SceneInventoryRepository,
         storage: StoragePort,
         ai_provider_registry: AIProviderRegistryProtocol,
         prompt_builder: PromptBuilder,
-        thumbnail_service: ThumbnailServiceProtocol
+        thumbnail_service: ThumbnailServiceProtocol,
+        task_queue: Optional[TaskQueuePort] = None,
+        prompt_optimizer: Optional[PromptOptimizerProtocol] = None,
     ):
         self.generation_repo = generation_repo
         self.image_repo = image_repo
+        self.scene_inventory_repo = scene_inventory_repo
         self.storage = storage
         self.ai_provider_registry = ai_provider_registry
         self.prompt_builder = prompt_builder
         self.thumbnail_service = thumbnail_service
+        self.task_queue = task_queue
+        self.prompt_optimizer = prompt_optimizer
 
     async def execute(self, generation_request_id: UUID) -> None:
         try:
@@ -48,17 +61,46 @@ class ProcessGenerationUseCase:
 
             image_data = await self.storage.download(source_image.storage_path)
 
-            # Scene inventory (Mocked for now since Phase 5 isn't complete)
-            scene_inventory = None
+            # Get scene inventory for the source image (if available)
+            scene_inventory_data = None
+            scene_inv = await self.scene_inventory_repo.get_by_image_id(request.source_image_id)
+            if scene_inv and scene_inv.status == "completed" and scene_inv.inventory_data:
+                scene_inventory_data = scene_inv.inventory_data
 
             prompt_config = PromptConfig(
                 mode=request.mode,
                 provider=request.provider,
                 preset=request.preset,
                 user_instructions=request.instructions,
-                scene_inventory=scene_inventory
+                scene_inventory=scene_inventory_data
             )
-            prompt_result = self.prompt_builder.build(prompt_config)
+
+            # Use prompt optimizer (GPT-4o) if available, otherwise fallback to template
+            if self.prompt_optimizer and scene_inventory_data:
+                # Extract elements_to_remove from instructions if present
+                elements_to_remove = None
+                user_instructions = request.instructions or ""
+                if "[REMOVE ELEMENTS:" in user_instructions:
+                    parts = user_instructions.split("[REMOVE ELEMENTS:")
+                    user_instructions = parts[0].strip()
+                    remove_part = parts[1].rstrip("]").strip()
+                    elements_to_remove = [e.strip() for e in remove_part.split(",") if e.strip()]
+
+                optimized_prompt_text = await self.prompt_optimizer.optimize(
+                    mode=request.mode.value,
+                    preset=request.preset or request.mode.value,
+                    user_instructions=user_instructions,
+                    scene_inventory=scene_inventory_data,
+                    elements_to_remove=elements_to_remove,
+                )
+                prompt_result = PromptResult(
+                    prompt=optimized_prompt_text,
+                    negative_prompt=None,
+                    preservation_instructions=None,
+                    provider_params=self.prompt_builder._get_provider_params(request.provider),
+                )
+            else:
+                prompt_result = self.prompt_builder.build(prompt_config)
 
             request.transition_to(GenerationStatus.generating)
             await self.generation_repo.save(request)
@@ -70,7 +112,7 @@ class ProcessGenerationUseCase:
                 generation_result.image_data, max_size=(400, 400)
             )
 
-            # Storage paths — use full path as expected by StoragePort.upload(data, path, content_type)
+            # Storage paths
             storage_path = f"projects/{source_image.project_id}/generated/gen_{generation_request_id}.jpg"
             thumbnail_path = f"projects/{source_image.project_id}/generated/thumb_{generation_request_id}.jpg"
 
@@ -81,7 +123,6 @@ class ProcessGenerationUseCase:
                 thumbnail_data, thumbnail_path, "image/jpeg"
             )
 
-            # Need to get width/height somehow, mocking 1024x1024 for generated image
             new_image_asset = ImageAsset(
                 project_id=source_image.project_id,
                 type="generated",
@@ -115,8 +156,17 @@ class ProcessGenerationUseCase:
 
             await self.generation_repo.save(request)
 
+            # Auto-analyze the generated image for future iterations
+            if self.task_queue:
+                try:
+                    await self.task_queue.enqueue(
+                        "app.infrastructure.tasks.celery_tasks.analyze_scene",
+                        str(saved_image_asset.id),
+                    )
+                except Exception:
+                    pass  # Non-critical — don't fail the generation if analysis enqueue fails
+
         except Exception as e:
-            # Need to re-fetch request if failed before getting it
             request = await self.generation_repo.get_by_id(generation_request_id)
             if request:
                 request.mark_failed(str(e))

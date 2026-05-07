@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Optional
 from uuid import UUID, uuid4
 import mimetypes
 
@@ -7,6 +7,7 @@ from app.domain.images.entities import ImageAsset
 from app.domain.shared.exceptions import ResourceNotFoundError, DomainValidationError
 from app.application.ports.repository_ports import ImageRepository, ProjectRepository
 from app.application.ports.storage_port import StoragePort
+from app.application.ports.task_queue_port import TaskQueuePort
 
 
 @dataclass
@@ -33,7 +34,8 @@ class UploadImageUseCase:
         storage: StoragePort,
         thumbnail_service: ThumbnailService,
         allowed_mime_types: list[str],
-        max_upload_size_mb: int
+        max_upload_size_mb: int,
+        task_queue: Optional[TaskQueuePort] = None,
     ):
         self.image_repo = image_repo
         self.project_repo = project_repo
@@ -41,6 +43,7 @@ class UploadImageUseCase:
         self.thumbnail_service = thumbnail_service
         self.allowed_mime_types = allowed_mime_types
         self.max_upload_size_mb = max_upload_size_mb
+        self.task_queue = task_queue
 
     async def execute(self, command: UploadImageCommand) -> ImageAsset:
         # Verify project exists
@@ -69,7 +72,7 @@ class UploadImageUseCase:
                 extension = guessed_ext.lstrip(".")
 
         if not extension:
-            extension = "jpg" # default fallback
+            extension = "jpg"
 
         # Get image dimensions
         try:
@@ -83,16 +86,13 @@ class UploadImageUseCase:
         # Upload original to storage
         await self.storage.upload(command.file_data, storage_path, command.content_type)
 
-        # Generate thumbnail bytes
+        # Generate thumbnail
         try:
             thumbnail_bytes = self.thumbnail_service.generate(command.file_data)
         except Exception as e:
             raise DomainValidationError("Failed to generate thumbnail") from e
 
-        # Generate thumbnail path
         thumbnail_path = f"projects/{command.project_id}/originals/{image_id}_thumb.{extension}"
-
-        # Upload thumbnail to storage
         await self.storage.upload(thumbnail_bytes, thumbnail_path, command.content_type)
 
         # Create ImageAsset entity
@@ -108,5 +108,16 @@ class UploadImageUseCase:
             thumbnail_path=thumbnail_path
         )
 
-        # Save to repository and return
-        return await self.image_repo.save(image_asset)
+        saved = await self.image_repo.save(image_asset)
+
+        # Auto-trigger scene analysis in background
+        if self.task_queue:
+            try:
+                await self.task_queue.enqueue(
+                    "app.infrastructure.tasks.celery_tasks.analyze_scene",
+                    str(saved.id),
+                )
+            except Exception:
+                pass  # Non-critical — don't fail upload if analysis enqueue fails
+
+        return saved

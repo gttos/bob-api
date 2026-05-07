@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interior AI — Testing Console</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; }
+h1 { font-size: 1.2rem; padding: 12px 16px; color: #fff; background: #111; border-bottom: 1px solid #222; }
+h2 { font-size: 0.95rem; margin: 14px 0 8px; color: #999; }
+h3 { font-size: 0.85rem; color: #777; margin: 10px 0 6px; }
+
+/* Layout */
+.app { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 45px); }
+@media (max-width: 800px) { .app { grid-template-columns: 1fr; } }
+
+/* Sidebar */
+.sidebar { background: #111; border-right: 1px solid #222; padding: 12px; overflow-y: auto; }
+button { background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.78rem; }
+button:hover { background: #1d4ed8; }
+button:disabled { background: #333; cursor: not-allowed; }
+button.sm { padding: 3px 8px; font-size: 0.7rem; }
+button.ghost { background: transparent; border: 1px solid #444; color: #aaa; }
+button.ghost:hover { border-color: #2563eb; color: #fff; }
+input, select, textarea { background: #1a1a1a; border: 1px solid #2a2a2a; color: #e0e0e0; padding: 6px 10px; border-radius: 5px; width: 100%; font-size: 0.8rem; }
+textarea { resize: vertical; min-height: 50px; }
+label { display: block; font-size: 0.7rem; color: #555; margin: 6px 0 2px; }
+.flex { display: flex; gap: 6px; align-items: center; }
+.drop-zone { border: 2px dashed #2a2a2a; border-radius: 6px; padding: 14px; text-align: center; color: #444; cursor: pointer; font-size: 0.78rem; margin: 8px 0; }
+.drop-zone:hover, .drop-zone.dragover { border-color: #2563eb; color: #888; }
+.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; }
+.gallery img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 2px solid transparent; opacity: 0.8; }
+.gallery img:hover { opacity: 1; border-color: #2563eb; }
+.gallery img.selected { opacity: 1; border-color: #22c55e; }
+.gallery .g-item { position: relative; }
+.gallery .g-badge { position: absolute; bottom: 2px; left: 2px; font-size: 0.5rem; background: rgba(0,0,0,0.8); padding: 1px 3px; border-radius: 2px; color: #888; }
+
+/* Gallery tree */
+.tree-group { margin-bottom: 10px; }
+.tree-parent { display: flex; gap: 6px; align-items: center; padding: 4px; border-radius: 5px; cursor: pointer; }
+.tree-parent:hover { background: #1a1a1a; }
+.tree-parent.active { background: #1a2a1a; }
+.tree-parent img { width: 50px; height: 40px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; }
+.tree-parent.active img { border-color: #22c55e; }
+.tree-parent .info { font-size: 0.7rem; color: #888; flex: 1; }
+.tree-parent .info .name { color: #ccc; font-weight: 500; }
+.tree-children { margin-left: 20px; padding-left: 10px; border-left: 1px solid #222; }
+.tree-child { display: flex; gap: 6px; align-items: center; padding: 3px 4px; border-radius: 4px; cursor: pointer; margin: 2px 0; }
+.tree-child:hover { background: #1a1a1a; }
+.tree-child.active { background: #1a1a2a; }
+.tree-child img { width: 40px; height: 32px; object-fit: cover; border-radius: 3px; border: 2px solid transparent; }
+.tree-child.active img { border-color: #60a5fa; }
+.tree-child .info { font-size: 0.65rem; color: #666; }
+.tree-child .info .tag { color: #a78bfa; }
+
+.main { padding: 16px 24px; overflow-y: auto; }
+.empty-state { text-align: center; padding: 80px 20px; color: #333; }
+.empty-state p { margin: 8px 0; }
+
+/* Generation form */
+.gen-form { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+.gen-form .row { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; align-items: end; }
+@media (max-width: 900px) { .gen-form .row { grid-template-columns: 1fr; } }
+
+/* Tree / History */
+.tree { margin-top: 12px; }
+.gen-card { background: #141414; border: 1px solid #222; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.gen-card-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid #1a1a1a; }
+.gen-card-header .left { display: flex; gap: 8px; align-items: center; }
+.gen-card-body { padding: 12px 14px; }
+.gen-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gen-comparison img { width: 100%; border-radius: 6px; cursor: pointer; }
+.gen-comparison .label { font-size: 0.7rem; color: #555; margin-bottom: 4px; }
+.gen-instructions { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 5px; padding: 8px 10px; font-size: 0.78rem; color: #ccc; margin-top: 8px; font-style: italic; }
+.gen-prompt { margin-top: 6px; }
+.gen-prompt summary { font-size: 0.7rem; color: #444; cursor: pointer; }
+.gen-prompt summary:hover { color: #888; }
+.gen-prompt pre { background: #080808; border: 1px solid #1a1a1a; border-radius: 4px; padding: 8px; font-size: 0.65rem; color: #4ade80; max-height: 120px; overflow-y: auto; white-space: pre-wrap; margin-top: 4px; }
+.status { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 600; }
+.status.pending { background: #854d0e; color: #fef08a; }
+.status.analyzing { background: #1e40af; color: #bfdbfe; }
+.status.generating { background: #6b21a8; color: #e9d5ff; }
+.status.completed { background: #166534; color: #bbf7d0; }
+.status.failed { background: #991b1b; color: #fecaca; }
+.meta { font-size: 0.7rem; color: #555; }
+
+/* Scene inventory */
+.scene-box { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 6px; padding: 10px; margin-top: 8px; }
+.scene-box summary { font-size: 0.75rem; color: #666; cursor: pointer; }
+.scene-box pre { font-size: 0.63rem; color: #4ade80; max-height: 180px; overflow-y: auto; white-space: pre-wrap; margin-top: 6px; }
+
+/* Element checkboxes */
+.elem-check { display: flex; align-items: center; gap: 4px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; cursor: pointer; }
+.elem-check:hover { border-color: #444; }
+.elem-check input { accent-color: #22c55e; }
+.elem-check.unchecked { border-color: #dc2626; background: #1a0a0a; opacity: 0.7; }
+.elem-check.unchecked label { text-decoration: line-through; color: #666; }
+
+/* Lightbox */
+.lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
+.lightbox.active { display: flex; }
+.lightbox img { max-width: 94%; max-height: 94%; border-radius: 6px; }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="">
+</div>
+
+<h1>🏠 Interior AI</h1>
+
+<div class="app">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="flex">
+    <input id="projectName" placeholder="Nombre del proyecto" value="Test" style="flex:1;">
+    <button class="sm" onclick="createProject()">+</button>
+  </div>
+  <label>Proyecto</label>
+  <div class="flex">
+    <select id="projectSelect" onchange="selectProject()" style="flex:1;"><option value="">—</option></select>
+    <button class="sm" style="background:#dc2626;padding:3px 6px;" onclick="deleteProject()" title="Eliminar proyecto">🗑</button>
+  </div>
+
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">📷 Subir imagen</div>
+  <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="uploadFile(this.files[0])">
+
+  <h3>Imágenes <span id="imgCount" style="color:#444;"></span></h3>
+  <div id="galleryTree"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mainPanel">
+
+<div class="empty-state" id="emptyState">
+  <p style="font-size:1.5rem;">📐</p>
+  <p style="color:#555;">Selecciona una imagen de la galería</p>
+  <p style="font-size:0.8rem;color:#333;">Sube una foto y haz click para empezar a generar variantes</p>
+</div>
+
+<div id="imageDetail" class="hidden">
+
+<!-- Generate form -->
+<div class="gen-form">
+  <div class="row">
+    <div>
+      <label>Modo</label>
+      <select id="genMode" onchange="updatePresets()">
+        <option value="style_redesign">Rediseño de estilo</option>
+        <option value="functional_variant">Cambiar función del espacio</option>
+        <option value="localized_edit">Edición puntual</option>
+      </select>
+    </div>
+    <div>
+      <label>Estilo / Preset</label>
+      <select id="genPreset"></select>
+    </div>
+    <div>
+      <label>Instrucciones (qué quieres cambiar)</label>
+      <textarea id="genInstructions" placeholder="Ej: Quiero un estilo cálido y acogedor. Mantener la ventana y el suelo exactamente como están."></textarea>
+    </div>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+    <button onclick="requestGeneration()" id="btnGenerate">🚀 Generar variante</button>
+    <span id="genSpinner" class="hidden" style="color:#888;font-size:0.8rem;">⏳ Processing...</span>
+    <span id="genStatus"></span>
+  </div>
+</div>
+
+<!-- Scene inventory (collapsible) -->
+<details class="scene-box" id="sceneBox">
+  <summary>🔍 Inventario de escena <button class="sm ghost" onclick="event.stopPropagation();getSceneInventory()">actualizar</button></summary>
+  <pre id="sceneContent">No cargado</pre>
+</details>
+
+<!-- Element checkboxes -->
+<div class="card" id="elementsCard" style="display:none;">
+  <h3 style="margin:0 0 8px;">Elementos detectados <span style="font-size:0.7rem;color:#555;">(desmarca lo que quieras eliminar)</span></h3>
+  <div id="elementsCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+</div>
+
+<!-- Generation tree -->
+<h2 id="treeTitle">Generaciones desde esta imagen</h2>
+<div class="tree" id="tree"></div>
+
+</div>
+</div>
+</div>
+
+<script>
+const API = '/api/v1';
+let currentProject = null;
+let currentImageId = null;
+let galleryData = [];
+let pollInterval = null;
+
+// Lightbox
+function openLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('active'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('active'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// Project
+async function createProject() {
+  const name = document.getElementById('projectName').value.trim(); if (!name) return;
+  const res = await fetch(`${API}/projects`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+  const d = await res.json(); await loadProjects();
+  document.getElementById('projectSelect').value = d.id; selectProject();
+}
+async function loadProjects() {
+  const res = await fetch(`${API}/projects?page=1&page_size=50`); const d = await res.json();
+  const sel = document.getElementById('projectSelect'); sel.innerHTML = '<option value="">—</option>';
+  d.items.forEach(p => { sel.innerHTML += `<option value="${p.id}">${p.name}</option>`; });
+}
+function selectProject() {
+  currentProject = document.getElementById('projectSelect').value;
+  currentImageId = null;
+  document.getElementById('imageDetail').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  if (currentProject) loadGallery();
+}
+
+// Upload
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); uploadFile(e.dataTransfer.files[0]); });
+async function uploadFile(file) {
+  if (!file || !currentProject) return;
+  const form = new FormData(); form.append('file', file);
+  const res = await fetch(`${API}/projects/${currentProject}/images`, { method:'POST', body:form });
+  if (res.ok) loadGallery();
+}
+
+// Gallery — tree view (originals → generated children)
+async function loadGallery() {
+  if (!currentProject) return;
+  const res = await fetch(`${API}/projects/${currentProject}/images?page=1&page_size=100`);
+  const d = await res.json(); galleryData = d.items;
+  document.getElementById('imgCount').textContent = `(${d.total})`;
+  const container = document.getElementById('galleryTree');
+  container.innerHTML = '';
+
+  // Separate originals and generated
+  const originals = d.items.filter(i => i.type === 'original');
+  const generated = d.items.filter(i => i.type === 'generated');
+
+  if (originals.length === 0 && generated.length === 0) {
+    container.innerHTML = '<p style="color:#333;font-size:0.75rem;padding:8px;">No images yet</p>';
+    return;
+  }
+
+  // For each original, find its children (generated images)
+  // We'll use the comparison endpoint to build the tree
+  for (const orig of originals) {
+    const group = document.createElement('div');
+    group.className = 'tree-group';
+
+    // Parent (original)
+    const parent = document.createElement('div');
+    parent.className = `tree-parent${orig.id === currentImageId ? ' active' : ''}`;
+    parent.onclick = () => selectImage(orig);
+    parent.innerHTML = `
+      <img src="${orig.thumbnail_url || orig.url}" ondblclick="event.stopPropagation();openLightbox('${orig.url}')">
+      <div class="info">
+        <div class="name">${orig.filename.length > 18 ? orig.filename.substring(0,18)+'...' : orig.filename}</div>
+        <div>${orig.width}×${orig.height}</div>
+      </div>
+      <button class="sm" style="background:#dc2626;padding:2px 5px;font-size:0.6rem;" onclick="event.stopPropagation();deleteImage('${orig.id}')" title="Eliminar">✕</button>`;
+    group.appendChild(parent);
+
+    // Children (generated from this original) — fetch from comparison
+    try {
+      const compRes = await fetch(`${API}/images/${orig.id}/comparison`);
+      if (compRes.ok) {
+        const compData = await compRes.json();
+        if (compData.variants && compData.variants.length > 0) {
+          const children = document.createElement('div');
+          children.className = 'tree-children';
+          compData.variants.forEach(v => {
+            // Find the full image data from galleryData
+            const childImg = galleryData.find(g => g.url === v.url) || { id: v.id, url: v.url, thumbnail_url: v.url };
+            const child = document.createElement('div');
+            child.className = `tree-child${childImg.id === currentImageId ? ' active' : ''}`;
+            child.onclick = () => selectImage(childImg);
+            const meta = v.generation_metadata || {};
+            child.innerHTML = `
+              <img src="${v.url}" ondblclick="event.stopPropagation();openLightbox('${v.url}')">
+              <div class="info">
+                <span class="tag">v${v.version_number}</span> ${(meta.preset || meta.mode || '').replace(/_/g,' ')}
+              </div>`;
+            children.appendChild(child);
+          });
+          group.appendChild(children);
+        }
+      }
+    } catch(e) {}
+
+    container.appendChild(group);
+  }
+
+  // Orphan generated images (not linked to any original via comparison)
+  // These might be generated from other generated images
+  const linkedUrls = new Set();
+  document.querySelectorAll('.tree-child img').forEach(el => linkedUrls.add(el.src));
+  const orphans = generated.filter(g => !linkedUrls.has(g.url) && !linkedUrls.has(g.thumbnail_url));
+  if (orphans.length > 0) {
+    const orphanGroup = document.createElement('div');
+    orphanGroup.className = 'tree-group';
+    orphanGroup.innerHTML = '<div style="font-size:0.65rem;color:#444;padding:4px;">Other generated</div>';
+    const orphanChildren = document.createElement('div');
+    orphanChildren.className = 'tree-children';
+    orphans.forEach(img => {
+      const child = document.createElement('div');
+      child.className = `tree-child${img.id === currentImageId ? ' active' : ''}`;
+      child.onclick = () => selectImage(img);
+      child.innerHTML = `
+        <img src="${img.thumbnail_url || img.url}" ondblclick="event.stopPropagation();openLightbox('${img.url}')">
+        <div class="info"><span class="tag">GEN</span> ${img.filename.substring(0,15)}</div>`;
+      orphanChildren.appendChild(child);
+    });
+    orphanGroup.appendChild(orphanChildren);
+    container.appendChild(orphanGroup);
+  }
+}
+
+function selectImage(img) {
+  currentImageId = img.id;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('imageDetail').classList.remove('hidden');
+  document.querySelectorAll('.gallery img').forEach(el => { el.className = el.dataset.id === img.id ? 'selected' : ''; });
+  document.getElementById('treeTitle').textContent = `Generations from: ${img.filename} (${img.type})`;
+  loadHistory();
+  autoLoadScene();
+}
+
+// Presets
+const PRESETS = {
+  style_redesign: [
+    {value: 'mediterraneo_moderno', label: 'Mediterráneo moderno'},
+    {value: 'nordico_minimalista', label: 'Nórdico minimalista'},
+    {value: 'industrial_urbano', label: 'Industrial urbano'},
+    {value: 'clasico_elegante', label: 'Clásico elegante'},
+    {value: 'japones_zen', label: 'Japonés zen'},
+    {value: 'boho_ecletico', label: 'Bohemio ecléctico'},
+    {value: 'coastal_playa', label: 'Coastal / Playa'},
+    {value: 'mid_century_modern', label: 'Mid-century modern'},
+  ],
+  functional_variant: [
+    {value: 'living_tv_wall', label: 'Salón con TV'},
+    {value: 'dining_room', label: 'Comedor'},
+    {value: 'home_office', label: 'Oficina / Estudio'},
+    {value: 'dormitorio_principal', label: 'Dormitorio principal'},
+  ],
+  localized_edit: [
+    {value: 'localized_edit', label: 'Edición libre (describir en instrucciones)'},
+  ]
+};
+function updatePresets() {
+  const sel = document.getElementById('genPreset'); sel.innerHTML = '';
+  (PRESETS[document.getElementById('genMode').value] || []).forEach(p => {
+    sel.innerHTML += `<option value="${p.value}">${p.label}</option>`;
+  });
+}
+updatePresets();
+
+// Generate
+async function requestGeneration() {
+  if (!currentImageId) return;
+  const body = { mode: document.getElementById('genMode').value, preset: document.getElementById('genPreset').value, provider: 'openai' };
+  const instr = document.getElementById('genInstructions').value.trim();
+  if (instr) body.instructions = instr;
+  // Include elements to remove (unchecked checkboxes)
+  const toRemove = getElementsToRemove();
+  if (toRemove.length > 0) body.elements_to_remove = toRemove;
+
+  document.getElementById('genSpinner').classList.remove('hidden');
+  document.getElementById('btnGenerate').disabled = true;
+  const res = await fetch(`${API}/images/${currentImageId}/generations`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const d = await res.json();
+  pollGeneration(d.id);
+}
+function pollGeneration(genId) {
+  if (pollInterval) clearInterval(pollInterval);
+  document.getElementById('genStatus').innerHTML = '<span class="status pending">pending</span>';
+  pollInterval = setInterval(async () => {
+    const res = await fetch(`${API}/generations/${genId}`); const d = await res.json();
+    document.getElementById('genStatus').innerHTML = `<span class="status ${d.status}">${d.status}</span>`;
+    if (d.status === 'completed' || d.status === 'failed') {
+      clearInterval(pollInterval);
+      document.getElementById('genSpinner').classList.add('hidden');
+      document.getElementById('btnGenerate').disabled = false;
+      if (d.status === 'completed') loadGallery();
+      loadHistory();
+    }
+  }, 3000);
+}
+
+// History — visual cards with comparison
+async function loadHistory() {
+  if (!currentImageId) return;
+  const res = await fetch(`${API}/images/${currentImageId}/generations?page=1&page_size=30`);
+  if (!res.ok) return;
+  const d = await res.json();
+  const tree = document.getElementById('tree');
+  if (!d.items || d.items.length === 0) { tree.innerHTML = '<p style="color:#333;font-size:0.8rem;">No generations yet. Use the form above to create one.</p>'; return; }
+
+  // Get the source image URL
+  const sourceImg = galleryData.find(i => i.id === currentImageId);
+  const sourceUrl = sourceImg ? sourceImg.url : '';
+
+  // Get comparison data for generated image URLs
+  let compData = null;
+  try {
+    const compRes = await fetch(`${API}/images/${currentImageId}/comparison`);
+    if (compRes.ok) compData = await compRes.json();
+  } catch(e) {}
+
+  let html = '';
+  d.items.forEach((gen, idx) => {
+    const time = new Date(gen.created_at).toLocaleString();
+    const duration = gen.completed_at ? Math.round((new Date(gen.completed_at) - new Date(gen.created_at)) / 1000) : null;
+
+    // Find the generated image URL from comparison data
+    let genImgUrl = '';
+    if (compData && compData.variants) {
+      const variant = compData.variants.find(v => v.generation_metadata && v.version_number === (d.items.length - idx));
+      if (variant) genImgUrl = variant.url;
+    }
+
+    html += `<div class="gen-card">`;
+    html += `<div class="gen-card-header">`;
+    html += `<div class="left">`;
+    html += `<span class="status ${gen.status}">${gen.status}</span>`;
+    html += `<span style="color:#c084fc;font-size:0.8rem;font-weight:500;">${gen.mode.replace(/_/g,' ')}</span>`;
+    if (gen.preset) html += `<span style="color:#666;font-size:0.75rem;">/ ${gen.preset.replace(/_/g,' ')}</span>`;
+    html += `</div>`;
+    html += `<span class="meta">${time}${duration ? ' · ' + duration + 's' : ''} · ${gen.provider || ''}${gen.model ? ' / ' + gen.model : ''}</span>`;
+    html += `</div>`;
+
+    html += `<div class="gen-card-body">`;
+
+    // Comparison images
+    if (gen.status === 'completed' && sourceUrl) {
+      html += `<div class="gen-comparison">`;
+      html += `<div><div class="label">Source</div><img src="${sourceUrl}" onclick="openLightbox('${sourceUrl}')"></div>`;
+      if (genImgUrl) {
+        html += `<div><div class="label">Result</div><img src="${genImgUrl}" onclick="openLightbox('${genImgUrl}')"></div>`;
+      }
+      html += `</div>`;
+    }
+
+    // User instructions
+    if (gen.instructions) {
+      html += `<div class="gen-instructions">💬 "${gen.instructions}"</div>`;
+    } else if (gen.preset) {
+      html += `<div class="gen-instructions" style="color:#888;">Preset: ${gen.preset.replace(/_/g,' ')}</div>`;
+    }
+
+    // Error
+    if (gen.status === 'failed' && gen.error_message) {
+      html += `<div style="color:#f87171;font-size:0.75rem;margin-top:6px;padding:6px;background:#1a0a0a;border-radius:4px;">${gen.error_message}</div>`;
+    }
+
+    // Full prompt (hidden by default)
+    if (gen.prompt_final) {
+      html += `<details class="gen-prompt"><summary>View full prompt sent to AI</summary><pre>${escapeHtml(gen.prompt_final)}</pre></details>`;
+    }
+
+    html += `</div></div>`;
+  });
+  tree.innerHTML = html;
+}
+
+// Scene + Element Checkboxes
+let currentSceneInventory = null;
+
+async function autoLoadScene() {
+  const res = await fetch(`${API}/images/${currentImageId}/scene-inventory`);
+  if (res.ok) {
+    const d = await res.json();
+    if (d.status === 'completed' && d.inventory_data) {
+      document.getElementById('sceneContent').textContent = JSON.stringify(d.inventory_data, null, 2);
+      currentSceneInventory = d.inventory_data;
+      renderElementCheckboxes(d.inventory_data);
+    } else {
+      document.getElementById('sceneContent').textContent = `Estado: ${d.status}`;
+      currentSceneInventory = null;
+      document.getElementById('elementsCard').style.display = 'none';
+    }
+  } else {
+    document.getElementById('sceneContent').textContent = 'No disponible — click actualizar';
+    currentSceneInventory = null;
+    document.getElementById('elementsCard').style.display = 'none';
+  }
+}
+
+function renderElementCheckboxes(inventory) {
+  const container = document.getElementById('elementsCheckboxes');
+  container.innerHTML = '';
+  const elements = [];
+  if (inventory.furniture) inventory.furniture.forEach(f => elements.push(f.type || f.item || '?'));
+  if (inventory.decoration) inventory.decoration.forEach(d => elements.push(d.type || d.item || '?'));
+  if (inventory.editable_candidates) {
+    inventory.editable_candidates.forEach(e => {
+      const name = e.element || e;
+      if (!elements.includes(name)) elements.push(name);
+    });
+  }
+  if (elements.length === 0) { document.getElementById('elementsCard').style.display = 'none'; return; }
+  document.getElementById('elementsCard').style.display = 'block';
+  elements.forEach(elem => {
+    const div = document.createElement('div');
+    div.className = 'elem-check';
+    div.innerHTML = `<input type="checkbox" checked data-element="${elem}" onchange="toggleElem(this)"><label>${elem}</label>`;
+    container.appendChild(div);
+  });
+}
+
+function toggleElem(cb) { cb.parentElement.classList.toggle('unchecked', !cb.checked); }
+
+function getElementsToRemove() {
+  return Array.from(document.querySelectorAll('#elementsCheckboxes input:not(:checked)')).map(cb => cb.dataset.element);
+}
+
+async function getSceneInventory() {
+  const pre = document.getElementById('sceneContent');
+  pre.textContent = 'Cargando...';
+  const res = await fetch(`${API}/images/${currentImageId}/scene-inventory`);
+  if (res.status === 404) {
+    await fetch(`${API}/images/${currentImageId}/scene-inventory`, { method:'POST' });
+    pre.textContent = '⏳ Análisis solicitado — actualizar en ~10s';
+    return;
+  }
+  const d = await res.json();
+  if (d.status === 'completed' && d.inventory_data) {
+    pre.textContent = JSON.stringify(d.inventory_data, null, 2);
+    currentSceneInventory = d.inventory_data;
+    renderElementCheckboxes(d.inventory_data);
+  } else {
+    pre.textContent = `Estado: ${d.status}`;
+  }
+}
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Delete
+async function deleteProject() {
+  if (!currentProject) return;
+  if (!confirm('¿Eliminar este proyecto? Se ocultarán todas sus imágenes.')) return;
+  await fetch(`${API}/projects/${currentProject}`, { method: 'DELETE' });
+  currentProject = null;
+  document.getElementById('imageDetail').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  await loadProjects();
+}
+
+async function deleteImage(imageId) {
+  if (!confirm('¿Eliminar esta imagen?')) return;
+  await fetch(`${API}/images/${imageId}`, { method: 'DELETE' });
+  if (currentImageId === imageId) {
+    currentImageId = null;
+    document.getElementById('imageDetail').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+  }
+  loadGallery();
+}
+
+// Init
+loadProjects();
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime, timezone
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,13 +30,14 @@ class SQLAlchemyProjectRepository(ProjectRepository):
 
     async def get_by_id(self, project_id: UUID) -> Project | None:
         model = await self._session.get(ProjectModel, project_id)
-        if model is None:
+        if model is None or model.deleted_at is not None:
             return None
         return self._to_entity(model)
 
     async def list_all(self, offset: int = 0, limit: int = 20) -> list[Project]:
         result = await self._session.execute(
             select(ProjectModel)
+            .where(ProjectModel.deleted_at.is_(None))
             .order_by(ProjectModel.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -45,13 +47,14 @@ class SQLAlchemyProjectRepository(ProjectRepository):
     async def count(self) -> int:
         result = await self._session.execute(
             select(func.count(ProjectModel.id))
+            .where(ProjectModel.deleted_at.is_(None))
         )
         return result.scalar_one()
 
     async def delete(self, project_id: UUID) -> None:
         model = await self._session.get(ProjectModel, project_id)
         if model is not None:
-            await self._session.delete(model)
+            model.deleted_at = datetime.now(timezone.utc)
             await self._session.flush()
 
     def _to_entity(self, model: ProjectModel) -> Project:

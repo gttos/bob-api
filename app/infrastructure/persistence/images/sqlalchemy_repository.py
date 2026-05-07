@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime, timezone
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ class SQLAlchemyImageRepository(ImageRepository):
 
     async def get_by_id(self, image_id: UUID) -> ImageAsset | None:
         model = await self._session.get(ImageAssetModel, image_id)
-        if model is None:
+        if model is None or model.deleted_at is not None:
             return None
         return self._to_entity(model)
 
@@ -41,6 +42,7 @@ class SQLAlchemyImageRepository(ImageRepository):
         result = await self._session.execute(
             select(ImageAssetModel)
             .where(ImageAssetModel.project_id == project_id)
+            .where(ImageAssetModel.deleted_at.is_(None))
             .order_by(ImageAssetModel.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -51,13 +53,14 @@ class SQLAlchemyImageRepository(ImageRepository):
         result = await self._session.execute(
             select(func.count(ImageAssetModel.id))
             .where(ImageAssetModel.project_id == project_id)
+            .where(ImageAssetModel.deleted_at.is_(None))
         )
         return result.scalar_one()
 
     async def delete(self, image_id: UUID) -> None:
         model = await self._session.get(ImageAssetModel, image_id)
         if model is not None:
-            await self._session.delete(model)
+            model.deleted_at = datetime.now(timezone.utc)
             await self._session.flush()
 
     def _to_entity(self, model: ImageAssetModel) -> ImageAsset:
